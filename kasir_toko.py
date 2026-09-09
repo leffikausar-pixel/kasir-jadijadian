@@ -3,6 +3,14 @@ import qrcode
 import io
 import pandas as pd
 
+from streamlit_gsheets import GSheetsConnection
+
+# Membuat koneksi ke Google Sheets Anda
+# GANTI URL di bawah ini dengan link Google Sheets Editor milik Anda yang sudah disalin tadi!
+URL_SHEET = "https://google.com"
+conn = st.connection("gsheets", type=GSheetsConnection)
+
+
 # Mengatur tampilan halaman web agar lebih luas dan modern
 st.set_page_config(page_title="Kasir Toko Berkah", layout="wide")
 st.title("🏪 Kasir Toko Berkah")
@@ -120,16 +128,26 @@ with kolom_kanan:
                 else:
                     kembalian = uang_bayar - total_akhir
                     st.balloons()
-                    st.success(f"### 💵 Kembalian: Rp {kembalian:,}")
+                                       st.success(f"### 💵 Kembalian: Rp {kembalian:,}")
                     
-                    if st.button("💾 Simpan Transaksi Tunai Lunas"):
-                        st.session_state.riwayat_penjualan.append({
-                            "Metode": "Tunai",
-                            "Total Belanja": total_akhir,
-                            "Status": "Lunas"
-                        })
-                        st.success("Transaksi dicatat!")
-                        st.rerun()
+                    # --- OTOMATIS INPUT LANGSUNG KE GOOGLE SHEETS ---
+                    # Membaca data yang sudah ada
+                    try:
+                        df_lama = conn.read(spreadsheet=URL_SHEET)
+                    except:
+                        df_lama = pd.DataFrame(columns=["Metode", "Total Belanja", "Status"])
+                    
+                    # Menambahkan baris transaksi baru
+                    data_baru = pd.DataFrame([{"Metode": "Tunai", "Total Belanja": total_akhir, "Status": "Lunas"}])
+                    df_update = pd.concat([df_lama, data_baru], ignore_index=True)
+                    
+                    # Kirim data kembali ke Google Sheets secara otomatis
+                    conn.update(spreadsheet=URL_SHEET, data=df_update)
+                    
+                    # Masukkan juga ke tampilan memori layar saat ini
+                    st.session_state.riwayat_penjualan.append({"Metode": "Tunai", "Total Belanja": total_akhir, "Status": "Lunas"})
+                    st.toast("🛒 Transaksi tunai otomatis tersimpan ke Cloud Database!")
+
                     
                     st.download_button(
                         label="📥 Cetak / Unduh Struk (TXT)",
@@ -171,15 +189,23 @@ with kolom_kanan:
             
             st.image(byte_im, caption=f"QRIS Otomatis: Rp {total_akhir:,} (Toko Belanja Vall)", width=250)
             
-            if st.button("✅ Konfirmasi Pembayaran QRIS Sukses"):
+                       if st.button("✅ Konfirmasi Pembayaran QRIS Sukses"):
                 st.balloons()
-                st.session_state.riwayat_penjualan.append({
-                    "Metode": "QRIS",
-                    "Total Belanja": total_akhir,
-                    "Status": "Lunas"
-                })
-                st.success("🚀 Pembayaran QRIS berhasil dikonfirmasi!")
-                st.rerun()
+                
+                # --- OTOMATIS INPUT LANGSUNG KE GOOGLE SHEETS ---
+                try:
+                    df_lama = conn.read(spreadsheet=URL_SHEET)
+                except:
+                    df_lama = pd.DataFrame(columns=["Metode", "Total Belanja", "Status"])
+                
+                data_baru = pd.DataFrame([{"Metode": "QRIS", "Total Belanja": total_akhir, "Status": "Lunas"}])
+                df_update = pd.concat([df_lama, data_baru], ignore_index=True)
+                
+                conn.update(spreadsheet=URL_SHEET, data=df_update)
+                
+                st.session_state.riwayat_penjualan.append({"Metode": "QRIS", "Total Belanja": total_akhir, "Status": "Lunas"})
+                st.success("🚀 Pembayaran QRIS sukses & otomatis tersimpan ke Cloud Database!")
+
 
 # --- BAGIAN PALING BAWAH: DAFTAR TRANSAKSI YANG SUDAH MEMBAYAR ---
 st.markdown("---")
@@ -196,3 +222,22 @@ else:
     
     total_omset = sum(item["Total Belanja"] for item in st.session_state.riwayat_penjualan)
     st.metric(label="💰 Total Pendapatan Masuk", value=f"Rp {total_omset:,}")
+    # --- BAGIAN PALING BAWAH: DAFTAR TRANSAKSI DARI DATABASE ---
+st.markdown("---")
+st.header("📊 Daftar Pelanggan & Transaksi Lunas (Real-time Database)")
+
+try:
+    # Selalu membaca data terbaru langsung dari Google Sheets
+    df_db = conn.read(spreadsheet=URL_SHEET)
+    if df_db.empty:
+        st.info("Belum ada transaksi lunas di database hari ini.")
+    else:
+        df_db.index = df_db.index + 1
+        df_db.index.name = "No. Antrean"
+        st.dataframe(df_db, use_container_width=True)
+        
+        total_omset = df_db["Total Belanja"].astype(int).sum()
+        st.metric(label="💰 Total Pendapatan Masuk Permanen", value=f"Rp {total_omset:,}")
+except:
+    st.warning("Gagal memuat database. Pastikan link Google Sheets sudah diatur sebagai Editor.")
+
