@@ -1,10 +1,11 @@
 import streamlit as st
 import qrcode
-import io 
+import io
+import pandas as pd
 
 # Mengatur tampilan halaman web agar lebih luas dan modern
-st.set_page_config(page_title="Aplikasi Kasir Pro v2", layout="wide")
-st.title("🏪 Aplikasi Kasir Toko Pusaka")
+st.set_page_config(page_title="Kasir Toko Berkah", layout="wide")
+st.title("🏪 Kasir Toko Berkah")
 
 # 1. DAFTAR BARANG DAN HARGA
 menu_barang = {
@@ -15,17 +16,12 @@ menu_barang = {
     5: {"nama": "Mie Instan", "harga": 3000, "foto": "https://unsplash.com"}
 }
 
-# 2. INISIALISASI VARIABEL SESSI
+# 2. INISIALISASI VARIABEL SESSI (Supaya data tidak hilang saat tombol diklik)
 if "keranjang" not in st.session_state:
     st.session_state.keranjang = []
 
 if "riwayat_penjualan" not in st.session_state:
     st.session_state.riwayat_penjualan = []
-}
-
-# 2. INISIALISASI VARIABEL SESSI (Supaya data tidak hilang saat tombol diklik)
-if "keranjang" not in st.session_state:
-    st.session_state.keranjang = []
 
 # Membagi halaman web menjadi 2 kolom utama
 kolom_kiri, kolom_kanan = st.columns(2)
@@ -39,6 +35,10 @@ with kolom_kiri:
     pilihan_user = st.selectbox("Silakan pilih barang:", list(pilihan_opsi.keys()))
     
     kode_terpilih = pilihan_opsi[pilihan_user]
+    
+    # Menampilkan Foto Barang yang sedang dipilih
+    if "foto" in menu_barang[kode_terpilih]:
+        st.image(menu_barang[kode_terpilih]["foto"], width=180)
     
     # Input jumlah barang
     jumlah = st.number_input(f"Masukkan jumlah beli untuk {menu_barang[kode_terpilih]['nama']}:", min_value=1, step=1, value=1)
@@ -59,7 +59,6 @@ with kolom_kiri:
     
     st.markdown("---")
     st.subheader("🎟️ Voucher & Diskon")
-    # Fitur Input Voucher Diskon
     kode_voucher = st.text_input("Masukkan Kode Voucher (Opsional):", placeholder="Contoh: DISKON10 atau HEMAT5")
     
     diskon_persen = 0
@@ -87,7 +86,7 @@ with kolom_kanan:
         total_belanja = 0
         teks_struk = "========== STRUK BELANJA ==========\n"
         
-        # Menampilkan barang di keranjang & menyusun teks untuk cetak struk
+        # Menampilkan barang di keranjang
         for i, item in enumerate(st.session_state.keranjang):
             st.write(f"{i+1}. **{item['nama']}** (x{item['jumlah']}) = Rp {item['subtotal']:,}")
             teks_struk += f"{item['nama']} x{item['jumlah']} = Rp {item['subtotal']:,}\n"
@@ -111,7 +110,6 @@ with kolom_kanan:
         
         st.markdown("---")
         st.subheader("💳 Metode Pembayaran")
-        # Fitur Pilihan Metode Pembayaran
         metode = st.radio("Pilih Metode:", ["Tunai (Cash)", "QRIS / E-Wallet"])
         
         if metode == "Tunai (Cash)":
@@ -124,15 +122,15 @@ with kolom_kanan:
                     st.balloons()
                     st.success(f"### 💵 Kembalian: Rp {kembalian:,}")
                     
-                    # Tambahkan ke riwayat saat pembayaran tunai sukses
-                    st.session_state.riwayat_penjualan.append({
-                        "Metode": "Tunai",
-                        "Total Belanja": total_akhir,
-                        "Status": "Lunas"
-                    })
-
+                    if st.button("💾 Simpan Transaksi Tunai Lunas"):
+                        st.session_state.riwayat_penjualan.append({
+                            "Metode": "Tunai",
+                            "Total Belanja": total_akhir,
+                            "Status": "Lunas"
+                        })
+                        st.success("Transaksi dicatat!")
+                        st.rerun()
                     
-                    # Fitur Cetak Struk (Unduh Berkas TXT)
                     st.download_button(
                         label="📥 Cetak / Unduh Struk (TXT)",
                         data=teks_struk,
@@ -143,19 +141,14 @@ with kolom_kanan:
         elif metode == "QRIS / E-Wallet":
             st.info("Silakan scan kode QRIS di bawah ini untuk melakukan pembayaran:")
             
-            # 1. Kode QRIS Anda dipecah menjadi dua bagian tepat sebelum posisi Tag 58 (5802ID)
+            # Kode QRIS Anda dipecah menjadi dua bagian tepat sebelum posisi Tag 58
             qris_part1 = "00020101021126570011ID.DANA.WWW011893600915387331088002098733108800303UMI51440014ID.CO.QRIS.WWW0215ID10253904693320303UMI520454995303360"
             qris_part2 = "5802ID5917Toko Belanja Vall6015Kota Jakarta Ti610513410" 
             
-            # 2. Fungsi menyisipkan nominal belanjaan di tengah urutan tag yang benar
             def generate_qris_dinamis(part1, part2, nominal):
-                # Tag 54 disusun berdasarkan panjang karakter nilai rupiahnya
                 sub_nominal = f"54{len(str(nominal)):02d}{nominal}"
-                
-                # Menggabungkan bagian awal + tag nominal + bagian akhir + pemicu checksum '6304'
                 qris_tanpa_crc = part1 + sub_nominal + part2 + "6304"
                 
-                # Hitung ulang kode verifikasi data (CRC16)
                 crc = 0xFFFF
                 for char in qris_tanpa_crc:
                     crc ^= ord(char) << 8
@@ -169,10 +162,8 @@ with kolom_kanan:
                 hex_crc = format(crc, '04X')
                 return qris_tanpa_crc + hex_crc
 
-            # 3. Proses pembuatan string QRIS
             qris_final = generate_qris_dinamis(qris_part1, qris_part2, total_akhir)
             
-            # 4. Merender data menjadi gambar QR murni
             img = qrcode.make(qris_final)
             buf = io.BytesIO()
             img.save(buf, format="PNG")
@@ -182,45 +173,26 @@ with kolom_kanan:
             
             if st.button("✅ Konfirmasi Pembayaran QRIS Sukses"):
                 st.balloons()
-                st.success("🚀 Pembayaran QRIS berhasil dikonfirmasi!")
-                
-                # Tambahkan ke riwayat saat QRIS sukses
                 st.session_state.riwayat_penjualan.append({
                     "Metode": "QRIS",
                     "Total Belanja": total_akhir,
                     "Status": "Lunas"
                 })
+                st.success("🚀 Pembayaran QRIS berhasil dikonfirmasi!")
+                st.rerun()
 
-                
-                st.download_button(
-                    label="📥 Cetak / Unduh Struk (TXT)",
-                    data=teks_struk,
-                    file_name="struk_belanja.txt",
-                    mime="text/plain"
-                    # --- BAGIAN PALING BAWAH: DAFTAR TRANSAKSI YANG SUDAH MEMBAYAR ---
+# --- BAGIAN PALING BAWAH: DAFTAR TRANSAKSI YANG SUDAH MEMBAYAR ---
 st.markdown("---")
 st.header("📊 Daftar Pelanggan & Transaksi Lunas")
 
 if not st.session_state.riwayat_penjualan:
     st.info("Belum ada transaksi lunas hari ini.")
 else:
-    # Menampilkan riwayat dalam bentuk tabel rapi yang bisa di-scroll
-    import pandas as pd
     df = pd.DataFrame(st.session_state.riwayat_penjualan)
-    
-    # Menambahkan kolom nomor urut/Antrean biar rapi
     df.index = df.index + 1
     df.index.name = "No. Antrean"
     
     st.dataframe(df, use_container_width=True)
     
-    # Menampilkan total omset pendapatan sementara
     total_omset = sum(item["Total Belanja"] for item in st.session_state.riwayat_penjualan)
     st.metric(label="💰 Total Pendapatan Masuk", value=f"Rp {total_omset:,}")
-
-                    
-                )
-
-
-
-
