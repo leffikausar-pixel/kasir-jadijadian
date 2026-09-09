@@ -15,6 +15,13 @@ menu_barang = {
     5: {"nama": "Mie Instan", "harga": 300},
     6: {"nama": "Baju Keren", "harga": 100},
     7: {"nama": "Celana Keren", "harga": 75},
+# Inisialisasi variabel sessi agar data tidak hilang saat web di-refresh
+if "keranjang" not in st.session_state:
+    st.session_state.keranjang = []
+
+# 📝 TAMBAHAN: Tempat menyimpan daftar yang sudah membayar
+if "riwayat_penjualan" not in st.session_state:
+    st.session_state.riwayat_penjualan = []
 }
 
 # 2. INISIALISASI VARIABEL SESSI (Supaya data tidak hilang saat tombol diklik)
@@ -118,6 +125,14 @@ with kolom_kanan:
                     st.balloons()
                     st.success(f"### 💵 Kembalian: Rp {kembalian:,}")
                     
+                    # Tambahkan ke riwayat saat pembayaran tunai sukses
+                    st.session_state.riwayat_penjualan.append({
+                        "Metode": "Tunai",
+                        "Total Belanja": total_akhir,
+                        "Status": "Lunas"
+                    })
+
+                    
                     # Fitur Cetak Struk (Unduh Berkas TXT)
                     st.download_button(
                         label="📥 Cetak / Unduh Struk (TXT)",
@@ -170,11 +185,41 @@ with kolom_kanan:
                 st.balloons()
                 st.success("🚀 Pembayaran QRIS berhasil dikonfirmasi!")
                 
+                # Tambahkan ke riwayat saat QRIS sukses
+                st.session_state.riwayat_penjualan.append({
+                    "Metode": "QRIS",
+                    "Total Belanja": total_akhir,
+                    "Status": "Lunas"
+                })
+
+                
                 st.download_button(
                     label="📥 Cetak / Unduh Struk (TXT)",
                     data=teks_struk,
                     file_name="struk_belanja.txt",
                     mime="text/plain"
+                    # --- BAGIAN PALING BAWAH: DAFTAR TRANSAKSI YANG SUDAH MEMBAYAR ---
+st.markdown("---")
+st.header("📊 Daftar Pelanggan & Transaksi Lunas")
+
+if not st.session_state.riwayat_penjualan:
+    st.info("Belum ada transaksi lunas hari ini.")
+else:
+    # Menampilkan riwayat dalam bentuk tabel rapi yang bisa di-scroll
+    import pandas as pd
+    df = pd.DataFrame(st.session_state.riwayat_penjualan)
+    
+    # Menambahkan kolom nomor urut/Antrean biar rapi
+    df.index = df.index + 1
+    df.index.name = "No. Antrean"
+    
+    st.dataframe(df, use_container_width=True)
+    
+    # Menampilkan total omset pendapatan sementara
+    total_omset = sum(item["Total Belanja"] for item in st.session_state.riwayat_penjualan)
+    st.metric(label="💰 Total Pendapatan Masuk", value=f"Rp {total_omset:,}")
+
+                    
                 )
 
 
