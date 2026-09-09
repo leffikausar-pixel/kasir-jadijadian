@@ -8,16 +8,15 @@ import gspread
 st.set_page_config(page_title="Kasir Toko Berkah", layout="wide")
 st.title("🏪 Kasir Toko Berkah")
 
-# 🔗 TULISKAN NAMA DOKUMEN GOOGLE SHEETS ANDA DI SINI (Contoh: "Laporan Kasir Toko")
+# 🔗 NAMA DOKUMEN GOOGLE SHEETS ANDA (Sudah disesuaikan)
 # Pastikan spreadsheet tersebut sudah di-Share dengan akses "Siapa saja yang memiliki link" sebagai "Editor"
-NAMA_SHEETS = "laporan_kas"
+NAMA_SHEETS = "laporan kas"
 
 # Fungsi otomatis untuk menulis transaksi baru ke Google Sheets
 def simpan_ke_google_sheets(metode_bayar, total_harga):
     try:
         # Menghubungkan secara publik sebagai Editor tanpa file JSON kredensial rumit
         gc = gspread.public()
-        # Mengakses lembar kerja utama
         sh = gc.open(NAMA_SHEETS)
         worksheet = sh.get_worksheet(0)
         # Otomatis menambahkan baris baru di paling bawah tabel Excel online
