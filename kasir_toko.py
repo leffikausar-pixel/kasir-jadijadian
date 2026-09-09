@@ -6,22 +6,21 @@ import io
 st.set_page_config(page_title="Aplikasi Kasir Pro v2", layout="wide")
 st.title("🏪 Aplikasi Kasir Toko Pusaka")
 
-# 1. DAFTAR BARANG (Pastikan ditutup dengan tanda } di baris akhir menu)
+# 1. DAFTAR BARANG DAN HARGA
 menu_barang = {
-    1: {"nama": "Beras 5kg", "harga": 65000},
-    2: {"nama": "Minyak Goreng 1L", "harga": 19000},
-    3: {"nama": "Gula Pasir 1kg", "harga": 16000},
-    4: {"nama": "Telur 1kg", "harga": 26000},
-    5: {"nama": "Mie Instan", "harga": 3000}
-} # <-- PERIKSA INI: Apakah tanda ini sudah ada di kode Anda?
+    1: {"nama": "Beras 5kg", "harga": 65000, "foto": "https://unsplash.com"},
+    2: {"nama": "Minyak Goreng 1L", "harga": 19000, "foto": "https://unsplash.com"},
+    3: {"nama": "Gula Pasir 1kg", "harga": 16000, "foto": "https://unsplash.com"},
+    4: {"nama": "Telur 1kg", "harga": 26000, "foto": "https://unsplash.com"},
+    5: {"nama": "Mie Instan", "harga": 3000, "foto": "https://unsplash.com"}
+}
 
-# 2. INISIALISASI VARIABEL SESSI (Baris 19 yang tadinya error)
+# 2. INISIALISASI VARIABEL SESSI
 if "keranjang" not in st.session_state:
     st.session_state.keranjang = []
 
 if "riwayat_penjualan" not in st.session_state:
     st.session_state.riwayat_penjualan = []
-
 }
 
 # 2. INISIALISASI VARIABEL SESSI (Supaya data tidak hilang saat tombol diklik)
