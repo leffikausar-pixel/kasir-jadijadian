@@ -8,11 +8,11 @@ st.title("🏪 Aplikasi Kasir Toko Pusaka")
 
 # 1. DAFTAR BARANG DAN HARGA (Bawaan Kode Anda)
 menu_barang = {
-    1: {"nama": "Beras 5kg", "harga": 65000},
-    2: {"nama": "Minyak Goreng 1L", "harga": 19000},
-    3: {"nama": "Gula Pasir 1kg", "harga": 16000},
-    4: {"nama": "Telur 1kg", "harga": 26000},
-    5: {"nama": "Mie Instan", "harga": 3000},
+    1: {"nama": "Beras 5kg", "harga": 650},
+    2: {"nama": "Minyak Goreng 1L", "harga": 190},
+    3: {"nama": "Gula Pasir 1kg", "harga": 160},
+    4: {"nama": "Telur 1kg", "harga": 260},
+    5: {"nama": "Mie Instan", "harga": 300},
 }
 
 # 2. INISIALISASI VARIABEL SESSI (Supaya data tidak hilang saat tombol diklik)
