@@ -1,3 +1,2 @@
 streamlit
 qrcode
-st-gsheets-connection
