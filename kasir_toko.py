@@ -2,39 +2,14 @@ import streamlit as st
 import qrcode
 import io
 import pandas as pd
-import gspread
+from streamlit_gsheets import GSheetsConnection
 
 # Mengatur tampilan halaman web agar lebih luas dan modern
 st.set_page_config(page_title="Kasir Toko Berkah", layout="wide")
 st.title("🏪 Kasir Toko Berkah")
 
-# 🔗 NAMA DOKUMEN GOOGLE SHEETS ANDA (Sudah disesuaikan)
-# Pastikan spreadsheet tersebut sudah di-Share dengan akses "Siapa saja yang memiliki link" sebagai "Editor"
-NAMA_SHEETS = "laporan kas"
-
-# Fungsi otomatis untuk menulis transaksi baru ke Google Sheets
-def simpan_ke_google_sheets(metode_bayar, total_harga):
-    try:
-        # Menghubungkan secara publik sebagai Editor tanpa file JSON kredensial rumit
-        gc = gspread.public()
-        sh = gc.open(NAMA_SHEETS)
-        worksheet = sh.get_worksheet(0)
-        # Otomatis menambahkan baris baru di paling bawah tabel Excel online
-        worksheet.append_row([metode_bayar, int(total_harga), "Lunas"])
-        return True
-    except Exception as e:
-        return False
-
-# Fungsi otomatis membaca semua riwayat pembayaran dari Google Sheets
-def baca_dari_google_sheets():
-    try:
-        gc = gspread.public()
-        sh = gc.open(NAMA_SHEETS)
-        worksheet = sh.get_worksheet(0)
-        records = worksheet.get_all_records()
-        return pd.DataFrame(records)
-    except:
-        return pd.DataFrame(columns=["Metode", "Total Belanja", "Status"])
+# Inisialisasi Koneksi Aman Google Sheets menggunakan berkas Secrets Cloud
+conn = st.connection("gsheets", type=GSheetsConnection)
 
 # 1. DAFTAR BARANG DAN HARGA
 menu_barang = {
@@ -126,15 +101,22 @@ with kolom_kanan:
                     st.balloons()
                     st.success(f"### 💵 Kembalian: Rp {kembalian:,}")
                     
-                    # TRIGGER AUTO-SAVE KETIKA BAYAR TUNAI LUNAS
-                    if st.button("💾 Konfirmasi Transaksi Tunai Sukses"):
-                        sukses = simpan_ke_google_sheets("Tunai", total_akhir)
-                        if sukses:
-                            st.toast("🛒 Berhasil disimpan ke Cloud Excel!")
-                            st.session_state.keranjang = []
-                            st.rerun()
-                        else:
-                            st.error("Gagal terhubung ke Google Sheets. Pastikan aksesnya sudah 'Editor'.")
+                    if st.button("💾 Konfirmasi Transaksi Lunas"):
+                        # Membaca data yang sudah ada di cloud sheet
+                        try:
+                            df_lama = conn.read(ttl="0d") # Memaksa membaca data paling update
+                        except:
+                            df_lama = pd.DataFrame(columns=["Metode", "Total Belanja", "Status"])
+                        
+                        # Gabungkan baris data baru
+                        data_baru = pd.DataFrame([{"Metode": "Tunai", "Total Belanja": int(total_akhir), "Status": "Lunas"}])
+                        df_update = pd.concat([df_lama, data_baru], ignore_index=True)
+                        
+                        # Mengirim data update ke Google Sheets secara aman
+                        conn.update(data=df_update)
+                        st.toast("🛒 Transaksi tunai lunas otomatis masuk ke Google Sheets!")
+                        st.session_state.keranjang = []
+                        st.rerun()
         
         elif metode == "QRIS / E-Wallet":
             st.info("Silakan scan kode QRIS di bawah ini untuk melakukan pembayaran:")
@@ -160,31 +142,36 @@ with kolom_kanan:
             
             st.image(buf.getvalue(), caption=f"QRIS Otomatis: Rp {total_akhir:,}", width=250)
             
-            # TRIGGER AUTO-SAVE KETIKA KONFIRMASI QRIS DIKLIK
             if st.button("✅ Konfirmasi Pembayaran QRIS Sukses"):
                 st.balloons()
-                sukses = simpan_ke_google_sheets("QRIS", total_akhir)
-                if sukses:
-                    st.success("🚀 Pembayaran sukses & otomatis tersimpan ke Cloud Excel!")
-                    st.session_state.keranjang = []
-                    st.rerun()
-                else:
-                    st.error("Gagal menulis ke Google Sheets.")
+                
+                try:
+                    df_lama = conn.read(ttl="0d")
+                except:
+                    df_lama = pd.DataFrame(columns=["Metode", "Total Belanja", "Status"])
+                
+                data_baru = pd.DataFrame([{"Metode": "QRIS", "Total Belanja": int(total_akhir), "Status": "Lunas"}])
+                df_update = pd.concat([df_lama, data_baru], ignore_index=True)
+                
+                conn.update(data=df_update)
+                st.success("🚀 Pembayaran QRIS sukses & otomatis tersimpan ke Google Sheets!")
+                st.session_state.keranjang = []
+                st.rerun()
 
-# --- BAGIAN PALING BAWAH: REAL-TIME TABLE DATABASE ---
+# --- BAGIAN PALING BAWAH: DATA REAL-TIME DARI GOOGLE SHEETS ---
 st.markdown("---")
-st.header("📊 Daftar Transaksi Lunas di Google Sheets (Real-time)")
+st.header("📊 Daftar Transaksi Terkunci di Google Sheets")
 
-df_db = baca_dari_google_sheets()
-if df_db.empty:
-    st.info("Belum ada transaksi di database atau Google Sheets Anda masih kosong.")
-else:
-    df_db.index = df_db.index + 1
-    df_db.index.name = "No. Antrean"
-    st.dataframe(df_db, use_container_width=True)
-    
-    try:
+try:
+    df_db = conn.read(ttl="0d") # Membaca data real-time langsung dari Google Sheets
+    if df_db.empty:
+        st.info("Belum ada transaksi tersimpan di Google Sheets.")
+    else:
+        df_db.index = df_db.index + 1
+        df_db.index.name = "No. Antrean"
+        st.dataframe(df_db, use_container_width=True)
+        
         total_omset = df_db["Total Belanja"].astype(int).sum()
-        st.metric(label="💰 Total Pendapatan Masuk Permanen", value=f"Rp {total_omset:,}")
-    except:
-        pass
+        st.metric(label="💰 Total Pendapatan Toko di Google Sheets", value=f"Rp {total_omset:,}")
+except:
+    st.warning("Hubungan ke Google Sheets sedang memproses. Pastikan link di menu Secrets Streamlit Cloud sudah disimpan.")
