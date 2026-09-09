@@ -120,7 +120,7 @@ with kolom_kanan:
         st.subheader("💳 Metode Pembayaran")
         metode = st.radio("Pilih Metode:", ["Tunai (Cash)", "QRIS / E-Wallet"])
         
-        if metode == "Tunai (Cash)":
+               if metode == "Tunai (Cash)":
             uang_bayar = st.number_input("Masukkan uang pembayaran (Rp):", min_value=0, step=1000, value=0)
             if uang_bayar > 0:
                 if uang_bayar < total_akhir:
@@ -128,26 +128,22 @@ with kolom_kanan:
                 else:
                     kembalian = uang_bayar - total_akhir
                     st.balloons()
-                                       st.success(f"### 💵 Kembalian: Rp {kembalian:,}")
+                    st.success(f"### 💵 Kembalian: Rp {kembalian:,}")
                     
                     # --- OTOMATIS INPUT LANGSUNG KE GOOGLE SHEETS ---
-                    # Membaca data yang sudah ada
                     try:
                         df_lama = conn.read(spreadsheet=URL_SHEET)
                     except:
                         df_lama = pd.DataFrame(columns=["Metode", "Total Belanja", "Status"])
                     
-                    # Menambahkan baris transaksi baru
                     data_baru = pd.DataFrame([{"Metode": "Tunai", "Total Belanja": total_akhir, "Status": "Lunas"}])
                     df_update = pd.concat([df_lama, data_baru], ignore_index=True)
                     
-                    # Kirim data kembali ke Google Sheets secara otomatis
+                    # Mengirim data ke Google Sheets
                     conn.update(spreadsheet=URL_SHEET, data=df_update)
                     
-                    # Masukkan juga ke tampilan memori layar saat ini
                     st.session_state.riwayat_penjualan.append({"Metode": "Tunai", "Total Belanja": total_akhir, "Status": "Lunas"})
                     st.toast("🛒 Transaksi tunai otomatis tersimpan ke Cloud Database!")
-
                     
                     st.download_button(
                         label="📥 Cetak / Unduh Struk (TXT)",
@@ -155,6 +151,7 @@ with kolom_kanan:
                         file_name="struk_belanja.txt",
                         mime="text/plain"
                     )
+
         
         elif metode == "QRIS / E-Wallet":
             st.info("Silakan scan kode QRIS di bawah ini untuk melakukan pembayaran:")
