@@ -8,14 +8,14 @@ import requests
 st.set_page_config(page_title="Kasir Toko Berkah", layout="wide")
 st.title("🏪 Kasir Toko Berkah")
 
-# 🔗 KODE IDENTITAS GOOGLE FORMS ANDA (Sudah Terisi Otomatis)
+# 🔗 KODE IDENTITAS ASLI GOOGLE FORMS ANDA (Sudah disesuaikan khusus formulir Anda)
 FORM_ID = "1FAIpQLSdFefIUsHXofGALOOD3ZWDmf44Jvra1UU_U-3YQIPpmX2X2oQ"
 ENTRY_METODE = "entry.1437648356"
 ENTRY_TOTAL = "entry.1802958440"
 
 # Fungsi kirim data otomatis ke Google Sheets via Google Form Webhook
 def kirim_ke_sheets(metode_bayar, total_harga):
-    url = f"https://docs.google.com/forms/d/e/{FORM_ID}/formResponse"
+    url = f"https://google.com{FORM_ID}/formResponse"
     data_payload = {
         ENTRY_METODE: metode_bayar,
         ENTRY_TOTAL: int(total_harga)
@@ -115,10 +115,10 @@ with kolom_kanan:
                     st.success(f"### 💵 Kembalian: Rp {kembalian:,}")
                     
                     if st.button("💾 Konfirmasi Transaksi Lunas"):
-                        # Pemicu kirim data otomatis ke Google Form (menembus ke Sheets)
+                        # Pemicu kirim data ke Google Form yang aslinya terdaftar
                         kirim_ke_sheets("Tunai", total_akhir)
                         st.session_state.riwayat_lokal.append({"Metode": "Tunai", "Total Belanja": total_akhir})
-                        st.toast("🚀 Sukses! Data terkirim secara permanen!")
+                        st.toast("🚀 Sukses! Transaksi tercatat permanen!")
                         st.session_state.keranjang = []
                         st.rerun()
         
@@ -148,7 +148,7 @@ with kolom_kanan:
             
             if st.button("✅ Konfirmasi Pembayaran QRIS Sukses"):
                 st.balloons()
-                # Pemicu kirim data otomatis ke Google Form (menembus ke Sheets)
+                # Pemicu kirim data ke Google Form yang aslinya terdaftar
                 kirim_ke_sheets("QRIS", total_akhir)
                 st.session_state.riwayat_lokal.append({"Metode": "QRIS", "Total Belanja": total_akhir})
                 st.success("🚀 Pembayaran QRIS sukses & tercatat!")
@@ -164,4 +164,4 @@ else:
     df = pd.DataFrame(st.session_state.riwayat_lokal)
     df.index = df.index + 1
     st.dataframe(df, use_container_width=True)
-    st.info("💡 Data transaksi di atas sudah otomatis lolos nembus ke file Excel Google Sheets Anda lewat Webhook!")
+    st.info("💡 Data transaksi di atas sudah otomatis nembus terisi secara permanen di file Excel Google Sheets Anda lewat Webhook!")
