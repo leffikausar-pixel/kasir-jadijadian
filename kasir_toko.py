@@ -3,27 +3,29 @@ import qrcode
 import io
 import pandas as pd
 import requests
+from datetime import datetime
 
 # Mengatur tampilan halaman web agar lebih luas dan modern
 st.set_page_config(page_title="Kasir Toko Berkah", layout="wide")
 st.title("🏪 Kasir Toko Berkah")
 
-# 🔗 KODE IDENTITAS ASLI GOOGLE FORMS ANDA
-FORM_ID = "1FAIpQLSdFefIUsHXofGALOOD3ZWDmf44Jvra1UU_U-3YQIPpmX2X2oQ"
-ENTRY_METODE = "entry.1437648356"
-ENTRY_TOTAL = "entry.1802958440"
+# 🔗 MASUKKAN LINK WEBHOOK DISCORD ANDA DI SINI
+URL_WEBHOOK = "https://discordapp.com/api/webhooks/1547290981806641203/MOtgEYJJFqyRo7fFPbrIxmp9qyj08JdvVBOPob_oaF8UYJSOfnumOJX2ehigT5PkhaTn"
 
-# Perbaikan fungsi kirim data otomatis menggunakan Header Form URL-Encoded resmi
-def kirim_ke_sheets(metode_bayar, total_harga):
-    url = f"https://google.com{FORM_ID}/formResponse"
-    data_payload = {
-        ENTRY_METODE: str(metode_bayar),
-        ENTRY_TOTAL: str(total_harga)
+# Fungsi kirim data otomatis ke Database Discord secara aman dan anti-blokir
+def kirim_ke_database(metode_bayar, total_harga):
+    waktu_sekarang = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    # Menyusun format data laporan rapi untuk dikirim
+    payload = {
+        "content": f"📊 **LAPORAN TRANSAKSI BARU LUNAS**\n"
+                   f"📅 Waktu: `{waktu_sekarang}`\n"
+                   f"💳 Metode: `{metode_bayar}`\n"
+                   f"💰 Total Belanja: **Rp {total_harga:,}**\n"
+                   f"========================="
     }
-    # Header wajib agar Google Form mengenali isian teks
-    headers = {"Content-Type": "application/x-www-form-urlencoded"}
     try:
-        requests.post(url, data=data_payload, headers=headers)
+        requests.post(URL_WEBHOOK, json=payload)
         return True
     except:
         return False
@@ -116,9 +118,10 @@ with kolom_kanan:
                     st.success(f"### 💵 Kembalian: Rp {kembalian:,}")
                     
                     if st.button("💾 Konfirmasi Transaksi Lunas"):
-                        kirim_ke_sheets("Tunai", total_akhir)
+                        # Otomatis melempar data ke server database Discord
+                        kirim_ke_database("Tunai", total_akhir)
                         st.session_state.riwayat_lokal.append({"Metode": "Tunai", "Total Belanja": total_akhir})
-                        st.toast("🚀 Sukses! Transaksi tercatat permanen!")
+                        st.toast("🚀 Sukses! Transaksi lunas otomatis masuk database Discord!")
                         st.session_state.keranjang = []
                         st.rerun()
         
@@ -148,13 +151,14 @@ with kolom_kanan:
             
             if st.button("✅ Konfirmasi Pembayaran QRIS Sukses"):
                 st.balloons()
-                kirim_ke_sheets("QRIS", total_akhir)
+                # Otomatis melempar data ke server database Discord
+                kirim_ke_database("QRIS", total_akhir)
                 st.session_state.riwayat_lokal.append({"Metode": "QRIS", "Total Belanja": total_akhir})
-                st.success("🚀 Pembayaran QRIS sukses & tercatat!")
+                st.success("🚀 Pembayaran QRIS sukses & tercatat di database!")
                 st.session_state.keranjang = []
                 st.rerun()
 
-# --- BAGIAN PALING BAWAH: TABEL LOKAL ---
+# --- BAGIAN PALING BAWAH: TABEL RINGKASAN ---
 st.markdown("---")
 st.header("📊 Ringkasan Penjualan Sesi Ini")
 if not st.session_state.riwayat_lokal:
