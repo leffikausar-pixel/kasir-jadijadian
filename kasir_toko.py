@@ -127,17 +127,42 @@ with kolom_kanan:
         elif metode == "QRIS / E-Wallet":
             st.info("Silakan scan kode QRIS di bawah ini untuk melakukan pembayaran:")
             
-            # 1. Membuat gambar QR secara lokal
-            qr_data = f"BAYAR_KASIR_SEBESAR_Rp_{total_akhir}"
-            img = qrcode.make(qr_data)
+            # 1. Kode QRIS Anda dipecah menjadi dua bagian tepat sebelum posisi Tag 58 (5802ID)
+            qris_part1 = "00020101021126570011ID.DANA.WWW011893600915387331088002098733108800303UMI51440014ID.CO.QRIS.WWW0215ID10253904693320303UMI520454995303360"
+            qris_part2 = "5802ID5917Toko Belanja Vall6015Kota Jakarta Ti610513410" 
             
-            # 2. Mengonversi gambar PIL menjadi data Bytes agar bisa dibaca Streamlit
+            # 2. Fungsi menyisipkan nominal belanjaan di tengah urutan tag yang benar
+            def generate_qris_dinamis(part1, part2, nominal):
+                # Tag 54 disusun berdasarkan panjang karakter nilai rupiahnya
+                sub_nominal = f"54{len(str(nominal)):02d}{nominal}"
+                
+                # Menggabungkan bagian awal + tag nominal + bagian akhir + pemicu checksum '6304'
+                qris_tanpa_crc = part1 + sub_nominal + part2 + "6304"
+                
+                # Hitung ulang kode verifikasi data (CRC16)
+                crc = 0xFFFF
+                for char in qris_tanpa_crc:
+                    crc ^= ord(char) << 8
+                    for _ in range(8):
+                        if crc & 0x8000:
+                            crc = (crc << 1) ^ 0x1021
+                        else:
+                            crc <<= 1
+                        crc &= 0xFFFF
+                
+                hex_crc = format(crc, '04X')
+                return qris_tanpa_crc + hex_crc
+
+            # 3. Proses pembuatan string QRIS
+            qris_final = generate_qris_dinamis(qris_part1, qris_part2, total_akhir)
+            
+            # 4. Merender data menjadi gambar QR murni
+            img = qrcode.make(qris_final)
             buf = io.BytesIO()
             img.save(buf, format="PNG")
             byte_im = buf.getvalue()
             
-            # 3. Menampilkan gambar QR yang sudah dikonversi
-            st.image(byte_im, caption="Pindai QRIS untuk membayar", width=250)
+            st.image(byte_im, caption=f"QRIS Otomatis: Rp {total_akhir:,} (Toko Belanja Vall)", width=250)
             
             if st.button("✅ Konfirmasi Pembayaran QRIS Sukses"):
                 st.balloons()
@@ -149,3 +174,7 @@ with kolom_kanan:
                     file_name="struk_belanja.txt",
                     mime="text/plain"
                 )
+
+
+
+
