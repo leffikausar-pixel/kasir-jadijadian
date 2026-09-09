@@ -13,6 +13,8 @@ menu_barang = {
     3: {"nama": "Gula Pasir 1kg", "harga": 160},
     4: {"nama": "Telur 1kg", "harga": 260},
     5: {"nama": "Mie Instan", "harga": 300},
+    6: {"nama": "Baju Keren", "harga": 100},
+    7: {"nama": "Celana Keren", "harga": 75},
 }
 
 # 2. INISIALISASI VARIABEL SESSI (Supaya data tidak hilang saat tombol diklik)
