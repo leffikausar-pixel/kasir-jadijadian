@@ -14,11 +14,12 @@ ENTRY_METODE = "entry.1437648356"
 ENTRY_TOTAL = "entry.1802958440"
 
 # Fungsi kirim data otomatis ke Google Sheets via Google Form Webhook
+# Fungsi kirim data otomatis ke Google Sheets via Google Form Webhook (Sudah Diperbaiki)
 def kirim_ke_sheets(metode_bayar, total_harga):
     url = f"https://google.com{FORM_ID}/formResponse"
     data_payload = {
-        ENTRY_METODE: metode_bayar,
-        ENTRY_TOTAL: int(total_harga)
+        ENTRY_METODE: str(metode_bayar), # Dipastikan menjadi teks
+        ENTRY_TOTAL: str(total_harga)    # Nominal angka dipaksa menjadi teks agar lolos dari blokir Google
     }
     try:
         # Python mengirim data seolah-olah sedang mengisi formulir web biasa
@@ -26,6 +27,7 @@ def kirim_ke_sheets(metode_bayar, total_harga):
         return True
     except:
         return False
+
 
 # 1. DAFTAR BARANG DAN HARGA
 menu_barang = {
