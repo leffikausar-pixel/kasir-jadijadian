@@ -35,22 +35,28 @@ def crc16_checksum(data: str) -> str:
     return f"{crc:04X}"
 
 def kirim_ke_database(metode_bayar, total_harga):
-    """Mengirim data ke Discord agar langsung dibaca dan dimasukkan ke Google Sheets oleh Zapier"""
+    """Mengirim data format Embeds khusus ke Discord agar Zapier langsung memunculkan variabel kolom siap pakai"""
     waktu_sekarang = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
-    # Format teks dipertahankan persis sama agar Zapier Anda tidak bingung membaca kolomnya
     payload = {
-        "content": f"📊 **LAPORAN TRANSAKSI BARU LUNAS**\n"
-                   f"📅 Waktu: `{waktu_sekarang}`\n"
-                   f"💳 Metode: `{metode_bayar}`\n"
-                   f"💰 Total Belanja: **Rp {total_harga:,}**\n"
-                   f"========================="
+        "embeds": [
+            {
+                "title": "📊 LAPORAN TRANSAKSI BARU LUNAS",
+                "color": 3066993,  # Warna hijau estetik di Discord
+                "fields": [
+                    {"name": "Waktu", "value": str(waktu_sekarang), "inline": True},
+                    {"name": "Metode", "value": str(metode_bayar), "inline": True},
+                    {"name": "Total", "value": str(total_harga), "inline": True}
+                ]
+            }
+        ]
     }
     try:
         response = requests.post(URL_WEBHOOK, json=payload, timeout=10)
         return response.status_code == 204
     except:
         return False
+
 
 def generate_qris_dinamis(part1, part2, nominal):
     """Menyusun teks QRIS Dinamis dan membuat gambar Barcode secara mandiri via library lokal"""
