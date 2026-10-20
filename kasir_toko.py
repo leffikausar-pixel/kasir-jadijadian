@@ -2,7 +2,7 @@ import io
 import pandas as pd
 import requests
 import streamlit as st
-import qrcode  # Library lokal baru untuk membuat QR Code mandiri secara offline
+import qrcode  # Library lokal untuk membuat QR Code mandiri secara offline
 from datetime import datetime
 
 # Mengatur tampilan halaman web agar lebih luas dan modern
@@ -40,13 +40,18 @@ def crc16_checksum(data: str) -> str:
     return f"{crc:04X}"
 
 def kirim_ke_sheets(metode_bayar, total_harga):
-    """Mengirim data transaksi langsung ke baris Google Sheets via Google Form backend"""
+    """Mengirim data transaksi ke Google Sheets dengan samaran Browser Manusia agar anti-blokir"""
     url = f"https://google.com{FORM_ID}/formResponse"
     data_payload = {
         ENTRY_METODE: str(metode_bayar),
         ENTRY_TOTAL: str(total_harga)
     }
-    headers = {"Content-Type": "application/x-www-form-urlencoded"}
+    
+    # Menambahkan User-Agent Chrome resmi agar Google mengizinkan pengiriman data otomatis
+    headers = {
+        "Content-Type": "application/x-www-form-urlencoded",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    }
     try:
         response = requests.post(url, data=data_payload, headers=headers)
         return response.status_code == 200
@@ -76,24 +81,20 @@ def generate_qris_dinamis(part1, part2, nominal):
     checksum_baru = crc16_checksum(qris_setengah_jadi)
     qris_final = f"{qris_setengah_jadi}{checksum_baru}"
     
-    # Membuat QR Code secara internal di memori Python tanpa menembak link web luar
     qr = qrcode.QRCode(version=1, box_size=10, border=4)
     qr.add_data(qris_final)
     qr.make(fit=True)
     
-    # Mengonversi QR Code menjadi objek gambar yang bisa dibaca Streamlit
     img = qr.make_image(fill_color="black", back_color="white")
     buf = io.BytesIO()
     img.save(buf, format="PNG")
     byte_im = buf.getvalue()
     
-    # Tampilkan Gambar Barcode buatan lokal yang dijamin tidak akan pecah/error lagi
     st.image(byte_im, caption=f"Scan QRIS Toko Belanja Vall - Total: Rp {nominal:,}", width=300)
 
 
 # --- MENU DAN INPUT UTAMA KASIR ---
 
-# Daftar Barang Jualan Anda
 MENU_BARANG = {
     "Beras 1kg": 15000,
     "Minyak Goreng 1L": 18000,
