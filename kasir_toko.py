@@ -14,7 +14,7 @@ if "keranjang" not in st.session_state:
 if "riwayat_lokal" not in st.session_state:
     st.session_state.riwayat_lokal = []
 
-# 🔗 KODE IDENTITAS GOOGLE FORMS ASLI ANDA (SUDAH DIKOREKSI)
+# 🔗 KODE IDENTITAS GOOGLE FORMS ASLI ANDA
 FORM_ID = "1FAIpQLSdFefIUsHXofGALOOD3ZWDmf44Jvra1UU_U-3YQIPpmX2X2oQ"
 ENTRY_METODE = "entry.431569343"
 ENTRY_TOTAL = "entry.892601940"
@@ -23,10 +23,24 @@ ENTRY_TOTAL = "entry.892601940"
 URL_WEBHOOK = "https://discordapp.com"
 
 
-# --- FUNGSI PROSES DAN PENGIRIMAN DATA ---
+# --- FUNGSI AUXILIARY & PENGIRIMAN DATA ---
+
+def crc16_checksum(data: str) -> str:
+    """Menghitung kode pengaman CRC16 standar perbankan untuk QRIS Dinamis"""
+    crc = 0xFFFF
+    for byte in data.encode('ascii'):
+        crc ^= byte << 8
+        for _ in range(8):
+            if crc & 0x8000:
+                crc = (crc << 1) ^ 0x1021
+            else:
+                crc <<= 1
+            crc &= 0xFFFF
+    return f"{crc:04X}"
 
 def kirim_ke_sheets(metode_bayar, total_harga):
-    url = f"https://docs.google.com/forms/d/e/{FORM_ID}/formResponse"
+    """Mengirim data transaksi langsung ke baris Google Sheets via Google Form backend"""
+    url = f"https://google.com{FORM_ID}/formResponse"
     data_payload = {
         ENTRY_METODE: str(metode_bayar),
         ENTRY_TOTAL: str(total_harga)
@@ -39,6 +53,7 @@ def kirim_ke_sheets(metode_bayar, total_harga):
         return False
 
 def kirim_ke_database(metode_bayar, total_harga):
+    """Mengirim laporan data nota penjualan rapi ke server log Discord"""
     waktu_sekarang = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     payload = {
         "content": f"📊 **LAPORAN TRANSAKSI BARU LUNAS**\n"
@@ -53,16 +68,20 @@ def kirim_ke_database(metode_bayar, total_harga):
     except:
         return False
 
-# Fungsi simulasi generate QRIS Dinamis berdasarkan nominal belanja
-def generate_qris_dinamis(nominal):
-    # Ini adalah simulasi tampilan teks/gambar QRIS
-    st.image(f"https://qrserver.com_{nominal}", 
-             caption=f"Scan QRIS - Total Tagihan: Rp {nominal:,}")
+def generate_qris_dinamis(part1, part2, nominal):
+    """Menyusun teks QRIS Dinamis dan memunculkan gambar Barcode siap scan di web"""
+    string_nominal = f"{len(str(nominal)):02d}{nominal}"
+    qris_setengah_jadi = f"{part1}{string_nominal}{part2}"
+    checksum_baru = crc16_checksum(qris_setengah_jadi)
+    qris_final = f"{qris_setengah_jadi}{checksum_baru}"
+    
+    st.image(f"https://qrserver.com{qris_final}", 
+             caption=f"Scan QRIS Toko Belanja Vall - Total: Rp {nominal:,}")
 
 
 # --- MENU DAN INPUT UTAMA KASIR ---
 
-# Daftar Barang (Menu Toko)
+# Daftar Barang Jualan Anda
 MENU_BARANG = {
     "Beras 1kg": 15000,
     "Minyak Goreng 1L": 18000,
@@ -97,7 +116,7 @@ with col_keranjang:
             st.rerun()
 
 
-# --- PROSES PEMBAYARAN (JIKA ADA BARANG) ---
+# --- PROSES PEMBAYARAN KASIR ---
 if total_akhir > 0:
     st.markdown("---")
     st.header("💳 Metode Pembayaran")
@@ -114,19 +133,20 @@ if total_akhir > 0:
             kirim_ke_database("Tunai", total_akhir)
             
             st.session_state.riwayat_lokal.append({"Metode": "Tunai", "Total Belanja": total_akhir})
-            st.toast("🚀 Sukses! Transaksi lunas otomatis masuk Google Sheets & Discord!")
+            st.toast("🚀 Transaksi lunas otomatis masuk Google Sheets & Discord!")
             
             st.session_state.keranjang = []
             st.rerun()
             
     with tab2:
-        st.info("Silakan scan kode QRIS dinamis di bawah ini:")
+        st.info("Silakan scan kode QRIS dinamis di bawah ini menggunakan aplikasi e-wallet / m-banking pembeli:")
         
-        # 📱 KODE QRIS TOKO BELANJA VALL (SUDAH DI-SET DINAMIS)
+        # Generator QRIS Dinamis Otomatis Khusus untuk Toko Belanja Vall
         generate_qris_dinamis(
             part1="00020101021226570011ID.DANA.WWW011893600915387331088002098733108800303UMI51440014ID.CO.QRIS.WWW0215ID10253904693320303UMI52045499530336054", 
             part2="5802ID5917Toko Belanja Vall6015Kota Jakarta Ti6105134106304", 
-            nominal=total_akhir )
+            nominal=total_akhir
+        )
         
         if st.button("✅ Konfirmasi Pembayaran QRIS Sukses", key="btn_qris"):
             st.balloons()
@@ -140,8 +160,7 @@ if total_akhir > 0:
             st.rerun()
 
 
-
-# --- BAGIAN PALING BAWAH: TABEL RINGKASAN ---
+# --- BAGIAN PALING BAWAH: TABEL RINGKASAN SESI ---
 st.markdown("---")
 st.header("📊 Ringkasan Penjualan Sesi Ini")
 
