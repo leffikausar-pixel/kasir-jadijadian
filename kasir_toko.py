@@ -7,7 +7,7 @@ from datetime import datetime
 
 # Mengatur tampilan halaman web agar lebih luas dan modern
 st.set_page_config(page_title="Kasir Toko Berkah", layout="wide")
-st.title("🏪 Kasir Toko Berkah")
+st.title("🏪 Kasir PAPUANOVA EXAONE")
 
 # --- INISIALISASI SESSION STATE ---
 if "keranjang" not in st.session_state:
