@@ -2,6 +2,7 @@ import io
 import pandas as pd
 import requests
 import streamlit as st
+import qrcode  # Library lokal baru untuk membuat QR Code mandiri secara offline
 from datetime import datetime
 
 # Mengatur tampilan halaman web agar lebih luas dan modern
@@ -69,14 +70,25 @@ def kirim_ke_database(metode_bayar, total_harga):
         return False
 
 def generate_qris_dinamis(part1, part2, nominal):
-    """Menyusun teks QRIS Dinamis dan memunculkan gambar Barcode siap scan di web"""
+    """Menyusun teks QRIS Dinamis dan membuat gambar Barcode secara mandiri via library lokal"""
     string_nominal = f"{len(str(nominal)):02d}{nominal}"
     qris_setengah_jadi = f"{part1}{string_nominal}{part2}"
     checksum_baru = crc16_checksum(qris_setengah_jadi)
     qris_final = f"{qris_setengah_jadi}{checksum_baru}"
     
-    st.image(f"https://qrserver.com{qris_final}", 
-             caption=f"Scan QRIS Toko Belanja Vall - Total: Rp {nominal:,}")
+    # Membuat QR Code secara internal di memori Python tanpa menembak link web luar
+    qr = qrcode.QRCode(version=1, box_size=10, border=4)
+    qr.add_data(qris_final)
+    qr.make(fit=True)
+    
+    # Mengonversi QR Code menjadi objek gambar yang bisa dibaca Streamlit
+    img = qr.make_image(fill_color="black", back_color="white")
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    byte_im = buf.getvalue()
+    
+    # Tampilkan Gambar Barcode buatan lokal yang dijamin tidak akan pecah/error lagi
+    st.image(byte_im, caption=f"Scan QRIS Toko Belanja Vall - Total: Rp {nominal:,}", width=300)
 
 
 # --- MENU DAN INPUT UTAMA KASIR ---
@@ -141,7 +153,7 @@ if total_akhir > 0:
     with tab2:
         st.info("Silakan scan kode QRIS dinamis di bawah ini menggunakan aplikasi e-wallet / m-banking pembeli:")
         
-        # Generator QRIS Dinamis Otomatis Khusus untuk Toko Belanja Vall
+        # Generator QRIS Dinamis menggunakan mesin internal aplikasi
         generate_qris_dinamis(
             part1="00020101021226570011ID.DANA.WWW011893600915387331088002098733108800303UMI51440014ID.CO.QRIS.WWW0215ID10253904693320303UMI52045499530336054", 
             part2="5802ID5917Toko Belanja Vall6015Kota Jakarta Ti6105134106304", 
