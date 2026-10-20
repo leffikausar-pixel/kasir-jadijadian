@@ -35,21 +35,12 @@ def crc16_checksum(data: str) -> str:
     return f"{crc:04X}"
 
 def kirim_ke_database(metode_bayar, total_harga):
-    """Mengirim data format Embeds khusus ke Discord agar Zapier langsung memunculkan variabel kolom siap pakai"""
+    """Mengirim baris teks bersih dengan pemisah koma agar Zapier langsung memisahkannya dengan mudah"""
     waktu_sekarang = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
+    # Format baris teks: Waktu , Metode , Total
     payload = {
-        "embeds": [
-            {
-                "title": "📊 LAPORAN TRANSAKSI BARU LUNAS",
-                "color": 3066993,  # Warna hijau estetik di Discord
-                "fields": [
-                    {"name": "Waktu", "value": str(waktu_sekarang), "inline": True},
-                    {"name": "Metode", "value": str(metode_bayar), "inline": True},
-                    {"name": "Total", "value": str(total_harga), "inline": True}
-                ]
-            }
-        ]
+        "content": f"{waktu_sekarang},{metode_bayar},{total_harga}"
     }
     try:
         response = requests.post(URL_WEBHOOK, json=payload, timeout=10)
