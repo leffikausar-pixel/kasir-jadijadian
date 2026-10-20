@@ -71,11 +71,9 @@ def generate_qris_dinamis(part1, part2, nominal):
 # --- MENU DAN INPUT UTAMA KASIR ---
 
 MENU_BARANG = {
-    "Beras 1kg": 15000,
-    "Minyak Goreng 1L": 18000,
-    "Gula Pasir 1kg": 16000,
-    "Telur 1kg": 28000,
-    "Mie Instan": 35000
+    "Papeda dan Ikan Patin Kuah Kuning": 18000,
+    "Kue Lontar": 8000,
+    "Es Kelapa Asam Manis": 10000,
 }
 
 col_menu, col_keranjang = st.columns(2)
