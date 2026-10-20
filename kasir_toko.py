@@ -14,10 +14,10 @@ if "keranjang" not in st.session_state:
 if "riwayat_lokal" not in st.session_state:
     st.session_state.riwayat_lokal = []
 
-# 🔗 KODE IDENTITAS ASLI GOOGLE FORMS BARU ANDA
-FORM_ID = "1xOzeuieqL-4aopF-RkFTVWDa4zZLLArWNZGK57gb6C8"
-ENTRY_METODE = "entry.431569343"  # <-- Silakan ubah angka ini jika kode entry Anda berbeda
-ENTRY_TOTAL = "entry.892601940"   # <-- Silakan ubah angka ini jika kode entry Anda berbeda
+# 🔗 KODE IDENTITAS GOOGLE FORMS ASLI ANDA (SUDAH DIKOREKSI)
+FORM_ID = "1FAIpQLSdFefIUsHXofGALOOD3ZWDmf44Jvra1UU_U-3YQIPpmX2X2oQ"
+ENTRY_METODE = "entry.431569343"
+ENTRY_TOTAL = "entry.892601940"
 
 # 🔗 LINK WEBHOOK DISCORD ANDA
 URL_WEBHOOK = "https://discordapp.com"
@@ -26,7 +26,7 @@ URL_WEBHOOK = "https://discordapp.com"
 # --- FUNGSI PROSES DAN PENGIRIMAN DATA ---
 
 def kirim_ke_sheets(metode_bayar, total_harga):
-    url = f"https://google.com{FORM_ID}/formResponse"
+    url = f"https://docs.google.com/forms/d/e/{FORM_ID}/formResponse"
     data_payload = {
         ENTRY_METODE: str(metode_bayar),
         ENTRY_TOTAL: str(total_harga)
@@ -53,6 +53,12 @@ def kirim_ke_database(metode_bayar, total_harga):
     except:
         return False
 
+# Fungsi simulasi generate QRIS Dinamis berdasarkan nominal belanja
+def generate_qris_dinamis(nominal):
+    # Ini adalah simulasi tampilan teks/gambar QRIS
+    st.image(f"https://qrserver.com_{nominal}", 
+             caption=f"Scan QRIS - Total Tagihan: Rp {nominal:,}")
+
 
 # --- MENU DAN INPUT UTAMA KASIR ---
 
@@ -65,7 +71,7 @@ MENU_BARANG = {
     "Mie Instan": 35000
 }
 
-col_menu, col_keranjang = st.columns([1, 1])
+col_menu, col_keranjang = st.columns(2)
 
 with col_menu:
     st.header("🛍️ Menu Barang")
@@ -99,7 +105,7 @@ if total_akhir > 0:
     tab1, tab2 = st.tabs(["💵 Pembayaran Tunai", "📱 Pembayaran QRIS"])
     
     with tab1:
-        nominal_bayar = st.number_input("Jumlah Uang Tunai Ditrima (Rp)", min_value=int(total_akhir), step=5000)
+        nominal_bayar = st.number_input("Jumlah Uang Tunai Diterima (Rp)", min_value=int(total_akhir), step=5000)
         kembalian = nominal_bayar - total_akhir
         st.success(f"### 💵 Kembalian: Rp {kembalian:,}")
         
@@ -108,13 +114,16 @@ if total_akhir > 0:
             kirim_ke_database("Tunai", total_akhir)
             
             st.session_state.riwayat_lokal.append({"Metode": "Tunai", "Total Belanja": total_akhir})
-            st.toast("🚀 Sukses! Transaksi lunas otomatis masuk database Discord!")
+            st.toast("🚀 Sukses! Transaksi lunas otomatis masuk Google Sheets & Discord!")
             
             st.session_state.keranjang = []
             st.rerun()
             
     with tab2:
-        st.info("Silakan scan kode QRIS yang tersedia di kasir.")
+        st.info("Silakan scan kode QRIS dinamis di bawah ini:")
+        
+        # Memanggil fungsi QRIS dinamis yang sempat hilang
+        generate_qris_dinamis(total_akhir)
         
         if st.button("✅ Konfirmasi Pembayaran QRIS Sukses", key="btn_qris"):
             st.balloons()
