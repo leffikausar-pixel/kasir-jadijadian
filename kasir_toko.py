@@ -119,15 +119,14 @@ if total_akhir > 0:
             st.session_state.keranjang = []
             st.rerun()
             
-       with tab2:
+    with tab2:
         st.info("Silakan scan kode QRIS dinamis di bawah ini:")
         
         # 📱 KODE QRIS TOKO BELANJA VALL (SUDAH DI-SET DINAMIS)
         generate_qris_dinamis(
             part1="00020101021226570011ID.DANA.WWW011893600915387331088002098733108800303UMI51440014ID.CO.QRIS.WWW0215ID10253904693320303UMI52045499530336054", 
             part2="5802ID5917Toko Belanja Vall6015Kota Jakarta Ti6105134106304", 
-            nominal=total_akhir
-        )
+            nominal=total_akhir )
         
         if st.button("✅ Konfirmasi Pembayaran QRIS Sukses", key="btn_qris"):
             st.balloons()
