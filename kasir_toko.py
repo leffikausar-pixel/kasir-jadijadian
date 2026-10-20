@@ -40,23 +40,30 @@ def crc16_checksum(data: str) -> str:
     return f"{crc:04X}"
 
 def kirim_ke_sheets(metode_bayar, total_harga):
-    """Mengirim data transaksi ke Google Sheets dengan samaran Browser Manusia agar anti-blokir"""
+    """Mengirim data transaksi ke Google Sheets dengan metode Force Submit"""
     url = f"https://google.com{FORM_ID}/formResponse"
     data_payload = {
         ENTRY_METODE: str(metode_bayar),
         ENTRY_TOTAL: str(total_harga)
     }
     
-    # Menambahkan User-Agent Chrome resmi agar Google mengizinkan pengiriman data otomatis
+    # Gunakan session khusus dan headers lengkap mirip browser asli di laptop/PC
+    session = requests.Session()
     headers = {
         "Content-Type": "application/x-www-form-urlencoded",
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9,id;q=0.8"
     }
     try:
-        response = requests.post(url, data=data_payload, headers=headers)
-        return response.status_code == 200
-    except:
-        return False
+        response = session.post(url, data=data_payload, headers=headers, timeout=10)
+        # Jika respon berisi tanda sukses atau kode 200, berarti lolos keamanan Google
+        if response.status_code == 200:
+            return True, f"Sukses (Code 200)"
+        else:
+            return False, f"Gagal (Code {response.status_code})"
+    except Exception as e:
+        return False, f"Error Koneksi: {str(e)}"
 
 def kirim_ke_database(metode_bayar, total_harga):
     """Mengirim laporan data nota penjualan rapi ke server log Discord"""
@@ -69,7 +76,7 @@ def kirim_ke_database(metode_bayar, total_harga):
                    f"========================="
     }
     try:
-        requests.post(URL_WEBHOOK, json=payload)
+        requests.post(URL_WEBHOOK, json=payload, timeout=10)
         return True
     except:
         return False
@@ -142,11 +149,15 @@ if total_akhir > 0:
         st.success(f"### 💵 Kembalian: Rp {kembalian:,}")
         
         if st.button("💾 Konfirmasi Transaksi Lunas", key="btn_tunai"):
-            kirim_ke_sheets("Tunai", total_akhir)
+            sukses_sheet, pesan_sheet = kirim_ke_sheets("Tunai", total_akhir)
             kirim_ke_database("Tunai", total_akhir)
             
             st.session_state.riwayat_lokal.append({"Metode": "Tunai", "Total Belanja": total_akhir})
-            st.toast("🚀 Transaksi lunas otomatis masuk Google Sheets & Discord!")
+            
+            if sukses_sheet:
+                st.toast("🚀 Transaksi lunas otomatis masuk Google Sheets & Discord!")
+            else:
+                st.error(f"Google Sheets Gagal: {pesan_sheet}")
             
             st.session_state.keranjang = []
             st.rerun()
@@ -154,7 +165,6 @@ if total_akhir > 0:
     with tab2:
         st.info("Silakan scan kode QRIS dinamis di bawah ini menggunakan aplikasi e-wallet / m-banking pembeli:")
         
-        # Generator QRIS Dinamis menggunakan mesin internal aplikasi
         generate_qris_dinamis(
             part1="00020101021226570011ID.DANA.WWW011893600915387331088002098733108800303UMI51440014ID.CO.QRIS.WWW0215ID10253904693320303UMI52045499530336054", 
             part2="5802ID5917Toko Belanja Vall6015Kota Jakarta Ti6105134106304", 
@@ -163,11 +173,15 @@ if total_akhir > 0:
         
         if st.button("✅ Konfirmasi Pembayaran QRIS Sukses", key="btn_qris"):
             st.balloons()
-            kirim_ke_sheets("QRIS", total_akhir)
+            sukses_sheet, pesan_sheet = kirim_ke_sheets("QRIS", total_akhir)
             kirim_ke_database("QRIS", total_akhir)
             
             st.session_state.riwayat_lokal.append({"Metode": "QRIS", "Total Belanja": total_akhir})
-            st.success("🚀 Pembayaran QRIS sukses & tercatat di database!")
+            
+            if sukses_sheet:
+                st.success("🚀 Pembayaran QRIS sukses & tercatat di database!")
+            else:
+                st.error(f"Google Sheets Gagal: {pesan_sheet}")
             
             st.session_state.keranjang = []
             st.rerun()
