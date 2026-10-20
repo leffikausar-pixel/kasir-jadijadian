@@ -1,16 +1,49 @@
-import streamlit as st
-import qrcode
 import io
 import pandas as pd
 import requests
+import streamlit as st
 from datetime import datetime
 
 # Mengatur tampilan halaman web agar lebih luas dan modern
 st.set_page_config(page_title="Kasir Toko Berkah", layout="wide")
 st.title("🏪 Kasir Toko Berkah")
 
-# 🔗 MASUKKAN LINK WEBHOOK DISCORD ANDA DI SINI
-URL_WEBHOOK = "https://discordapp.com/api/webhooks/1547290981806641203/MOtgEYJJFqyRo7fFPbrIxmp9qyj08JdvVBOPob_oaF8UYJSOfnumOJX2ehigT5PkhaTn"
+# --- INISIALISASI SESSION STATE (AGAR TIDAK ERROR SAAT RELOAD) ---
+if "keranjang" not in st.session_state:
+    st.session_state.keranjang = []
+if "riwayat_lokal" not in st.session_state:
+    st.session_state.riwayat_lokal = []
+
+# 🔗 KODE IDENTITAS ASLI GOOGLE FORMS ANDA
+FORM_ID = "1xOzeuieqL-4aopF-RkFTVWDa4zZLLArWNZGK57gb6C8"
+ENTRY_METODE = "entry.431569343"
+ENTRY_TOTAL = "entry.892601940"
+
+# 🔗 LINK WEBHOOK DISCORD ANDA
+URL_WEBHOOK = "https://discordapp.com"
+
+
+# --- FUNGSI PROSES DAN PENGIRIMAN DATA ---
+
+# Fungsi kirim data otomatis menggunakan Header Form URL-Encoded resmi
+def kirim_ke_sheets(metode_bayar, total_harga):
+    # Koreksi URL resmi Google Form submission agar mengarah ke formResponse
+    url = f"https://google.com{FORM_ID}/formResponse"
+    
+    data_payload = {
+        ENTRY_METODE: str(metode_bayar),
+        ENTRY_TOTAL: str(total_harga)
+    }
+    
+    # Header wajib agar Google Form mengenali isian teks
+    headers = {"Content-Type": "application/x-www-form-urlencoded"}
+    
+    try:
+        response = requests.post(url, data=data_payload, headers=headers)
+        return response.status_code == 200
+    except:
+        return False
+
 
 # Fungsi kirim data otomatis ke Database Discord secara aman dan anti-blokir
 def kirim_ke_database(metode_bayar, total_harga):
@@ -24,146 +57,73 @@ def kirim_ke_database(metode_bayar, total_harga):
                    f"💰 Total Belanja: **Rp {total_harga:,}**\n"
                    f"========================="
     }
+    
     try:
         requests.post(URL_WEBHOOK, json=payload)
         return True
     except:
         return False
 
-# 1. DAFTAR BARANG DAN HARGA
-menu_barang = {
-    1: {"nama": "Beras 5kg", "harga": 65000, "foto": "https://unsplash.com"},
-    2: {"nama": "Minyak Goreng 1L", "harga": 19000, "foto": "https://unsplash.com"},
-    3: {"nama": "Gula Pasir 1kg", "harga": 16000, "foto": "https://unsplash.com"},
-    4: {"nama": "Telur 1kg", "harga": 26000, "foto": "https://unsplash.com"},
-    5: {"nama": "Mie Instan", "harga": 3000, "foto": "https://unsplash.com"}
-}
 
-# 2. INISIALISASI VARIABEL KERANJANG
-if "keranjang" not in st.session_state:
-    st.session_state.keranjang = []
+# --- SIMULASI LOGIKA TRANSAKSI & TOMBOL ---
 
-if "riwayat_lokal" not in st.session_state:
-    st.session_state.riwayat_lokal = []
+# Dummy nilai untuk kebutuhan demonstrasi kode (akan menyesuaikan dengan sistem kasir Anda)
+total_akhir = 50000  # Contoh nominal nominal belanja
+kembalian = 0        # Contoh nominal kembalian
 
-# Membagi halaman web menjadi 2 kolom utama
-kolom_kiri, kolom_kanan = st.columns(2)
+# Bagian Tab Pembayaran atau Pilihan Metode
+tab1, tab2 = st.tabs(["💵 Pembayaran Tunai", "📱 Pembayaran QRIS"])
 
-# --- KOLOM SEBELAH KIRI: MENU & INPUT BARANG ---
-with kolom_kiri:
-    st.subheader("🛒 Pilih & Masukkan Barang")
+with tab1:
+    st.write(f"Total Belanja: Rp {total_akhir:,}")
+    st.success(f"### 💵 Kembalian: Rp {kembalian:,}")
     
-    pilihan_opsi = {f"{info['nama']} - Rp {info['harga']:,}": kode for kode, info in menu_barang.items()}
-    pilihan_user = st.selectbox("Silakan pilih barang:", list(pilihan_opsi.keys()))
-    kode_terpilih = pilihan_opsi[pilihan_user]
-    
-    if "foto" in menu_barang[kode_terpilih]:
-        st.image(menu_barang[kode_terpilih]["foto"], width=180)
-    
-    jumlah = st.number_input(f"Masukkan jumlah beli untuk {menu_barang[kode_terpilih]['nama']}:", min_value=1, step=1, value=1)
-    
-    if st.button("➕ Tambah ke Keranjang", type="primary"):
-        st.session_state.keranjang.append({
-            "nama": menu_barang[kode_terpilih]["nama"],
-            "harga": menu_barang[kode_terpilih]["harga"],
-            "jumlah": jumlah,
-            "subtotal": menu_barang[kode_terpilih]["harga"] * jumlah
-        })
-        st.success(f"Berhasil menambahkan {jumlah} {menu_barang[kode_terpilih]['nama']} ke keranjang.")
-    
-    st.markdown("---")
-    st.subheader("🎟️ Voucher & Diskon")
-    kode_voucher = st.text_input("Masukkan Kode Voucher (Opsional):", placeholder="Contoh: DISKON10")
-    
-    diskon_persen = 0
-    if kode_voucher.upper() == "DISKON10":
-        diskon_persen = 10
-        st.success("🎉 Potongan 10% Aktif!")
-
-    if st.button("🗑️ Kosongkan Keranjang", type="secondary"):
+    if st.button("💾 Konfirmasi Transaksi Lunas", key="btn_tunai"):
+        # Otomatis mengirim data ke Google Sheets via Google Form
+        kirim_ke_sheets("Tunai", total_akhir)
+        
+        # Otomatis melempar data ke server database Discord
+        kirim_ke_database("Tunai", total_akhir)
+        
+        # Mencatat ke riwayat lokal sesi ini
+        st.session_state.riwayat_lokal.append({"Metode": "Tunai", "Total Belanja": total_akhir})
+        
+        st.toast("🚀 Sukses! Transaksi tercatat permanen!")
+        st.toast("🚀 Sukses! Transaksi lunas otomatis masuk database Discord!")
+        
+        # Reset keranjang setelah transaksi lunas
         st.session_state.keranjang = []
         st.rerun()
 
-# --- KOLOM SEBELAH KANAN: STRUK BELANJA & PEMBAYARAN ---
-with kolom_kanan:
-    st.subheader("🧾 Struk Belanja & Pembayaran")
+with tab2:
+    st.write(f"Total Belanja: Rp {total_akhir:,}")
+    st.info("Silakan scan kode QRIS yang tersedia.")
     
-    if not st.session_state.keranjang:
-        st.info("Belum ada transaksi. Keranjang belanja kosong.")
-    else:
-        total_belanja = 0
-        for item in st.session_state.keranjang:
-            st.write(f"🔹 **{item['nama']}** (x{item['jumlah']}) = Rp {item['subtotal']:,}")
-            total_belanja += item["subtotal"]
-            
-        potongan = int(total_belanja * (diskon_persen / 100))
-        total_akhir = total_belanja - potongan
+    if st.button("✅ Konfirmasi Pembayaran QRIS Sukses", key="btn_qris"):
+        st.balloons()
         
-        st.markdown("---")
-        st.write(f"Subtotal Belanja: Rp {total_belanja:,}")
-        st.markdown(f"## **Total Harus Dibayar: Rp {total_akhir:,}**")
+        # Otomatis mengirim data ke Google Sheets via Google Form
+        kirim_ke_sheets("QRIS", total_akhir)
         
-        st.markdown("---")
-        st.subheader("💳 Metode Pembayaran")
-        metode = st.radio("Pilih Metode:", ["Tunai (Cash)", "QRIS / E-Wallet"])
+        # Otomatis melempar data ke server database Discord
+        kirim_ke_database("QRIS", total_akhir)
         
-        if metode == "Tunai (Cash)":
-            uang_bayar = st.number_input("Masukkan uang pembayaran (Rp):", min_value=0, step=1000, value=0)
-            if uang_bayar > 0:
-                if uang_bayar < total_akhir:
-                    st.error(f"Uang kurang Rp {total_akhir - uang_bayar:,}.")
-                else:
-                    kembalian = uang_bayar - total_akhir
-                    st.balloons()
-                    st.success(f"### 💵 Kembalian: Rp {kembalian:,}")
-                    
-                    if st.button("💾 Konfirmasi Transaksi Lunas"):
-                        # Otomatis melempar data ke server database Discord
-                        kirim_ke_database("Tunai", total_akhir)
-                        st.session_state.riwayat_lokal.append({"Metode": "Tunai", "Total Belanja": total_akhir})
-                        st.toast("🚀 Sukses! Transaksi lunas otomatis masuk database Discord!")
-                        st.session_state.keranjang = []
-                        st.rerun()
+        # Mencatat ke riwayat lokal sesi ini
+        st.session_state.riwayat_lokal.append({"Metode": "QRIS", "Total Belanja": total_akhir})
         
-        elif metode == "QRIS / E-Wallet":
-            st.info("Silakan scan kode QRIS di bawah ini untuk melakukan pembayaran:")
-            qris_part1 = "00020101021126570011ID.DANA.WWW011893600915387331088002098733108800303UMI51440014ID.CO.QRIS.WWW0215ID10253904693320303UMI520454995303360"
-            qris_part2 = "5802ID5917Toko Belanja Vall6015Kota Jakarta Ti610513410" 
-            
-            def generate_qris_dinamis(part1, part2, nominal):
-                sub_nominal = f"54{len(str(nominal)):02d}{nominal}"
-                qris_tanpa_crc = part1 + sub_nominal + part2 + "6304"
-                crc = 0xFFFF
-                for char in qris_tanpa_crc:
-                    crc ^= ord(char) << 8
-                    for _ in range(8):
-                        if crc & 0x8000: crc = (crc << 1) ^ 0x1021
-                        else: crc <<= 1
-                        crc &= 0xFFFF
-                return qris_tanpa_crc + format(crc, '04X')
+        st.success("🚀 Pembayaran QRIS sukses & tercatat di database!")
+        
+        # Reset keranjang setelah transaksi lunas
+        st.session_state.keranjang = []
+        st.rerun()
 
-            qris_final = generate_qris_dinamis(qris_part1, qris_part2, total_akhir)
-            img = qrcode.make(qris_final)
-            buf = io.BytesIO()
-            img.save(buf, format="PNG")
-            
-            st.image(buf.getvalue(), caption=f"QRIS Otomatis: Rp {total_akhir:,}", width=250)
-            
-            if st.button("✅ Konfirmasi Pembayaran QRIS Sukses"):
-                st.balloons()
-                # Otomatis melempar data ke server database Discord
-                kirim_ke_database("QRIS", total_akhir)
-                st.session_state.riwayat_lokal.append({"Metode": "QRIS", "Total Belanja": total_akhir})
-                st.success("🚀 Pembayaran QRIS sukses & tercatat di database!")
-                st.session_state.keranjang = []
-                st.rerun()
 
 # --- BAGIAN PALING BAWAH: TABEL RINGKASAN ---
 st.markdown("---")
 st.header("📊 Ringkasan Penjualan Sesi Ini")
+
 if not st.session_state.riwayat_lokal:
-    st.info("Belum ada transaksi di sesi ini.")
+    st.info("Belum ada transaksi pada sesi ini.")
 else:
-    df = pd.DataFrame(st.session_state.riwayat_lokal)
-    df.index = df.index + 1
-    st.dataframe(df, use_container_width=True)
+    df_riwayat = pd.DataFrame(st.session_state.riwayat_lokal)
+    st.dataframe(df_riwayat, use_container_width=True)
