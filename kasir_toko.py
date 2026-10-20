@@ -2,7 +2,7 @@ import io
 import pandas as pd
 import requests
 import streamlit as st
-import qrcode  # Library lokal untuk membuat QR Code mandiri secara offline
+import qrcode
 from datetime import datetime
 
 # Mengatur tampilan halaman web agar lebih luas dan modern
@@ -15,13 +15,8 @@ if "keranjang" not in st.session_state:
 if "riwayat_lokal" not in st.session_state:
     st.session_state.riwayat_lokal = []
 
-# 🔗 KODE IDENTITAS GOOGLE FORMS ASLI ANDA
-FORM_ID = "1FAIpQLSdFefIUsHXofGALOOD3ZWDmf44Jvra1UU_U-3YQIPpmX2X2oQ"
-ENTRY_METODE = "entry.431569343"
-ENTRY_TOTAL = "entry.892601940"
-
-# 🔗 LINK WEBHOOK DISCORD ANDA
-URL_WEBHOOK = "https://discordapp.com"
+# 🔗 LINK WEBHOOK DISCORD ANDA (Kunci Utama Pengiriman ke Zapier)
+URL_WEBHOOK = "https://discord.com/api/webhooks/1562098718881353869/vaNjUU8iCqmWpu7l9fEH6TsBI4JnbSzd8mgqq1k9w-khtlTHX-E_OGXiZ7bQArL46Mx5"
 
 
 # --- FUNGSI AUXILIARY & PENGIRIMAN DATA ---
@@ -39,35 +34,11 @@ def crc16_checksum(data: str) -> str:
             crc &= 0xFFFF
     return f"{crc:04X}"
 
-def kirim_ke_sheets(metode_bayar, total_harga):
-    """Mengirim data transaksi ke Google Sheets dengan metode Force Submit"""
-    url = f"https://google.com{FORM_ID}/formResponse"
-    data_payload = {
-        ENTRY_METODE: str(metode_bayar),
-        ENTRY_TOTAL: str(total_harga)
-    }
-    
-    # Gunakan session khusus dan headers lengkap mirip browser asli di laptop/PC
-    session = requests.Session()
-    headers = {
-        "Content-Type": "application/x-www-form-urlencoded",
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.9,id;q=0.8"
-    }
-    try:
-        response = session.post(url, data=data_payload, headers=headers, timeout=10)
-        # Jika respon berisi tanda sukses atau kode 200, berarti lolos keamanan Google
-        if response.status_code == 200:
-            return True, f"Sukses (Code 200)"
-        else:
-            return False, f"Gagal (Code {response.status_code})"
-    except Exception as e:
-        return False, f"Error Koneksi: {str(e)}"
-
 def kirim_ke_database(metode_bayar, total_harga):
-    """Mengirim laporan data nota penjualan rapi ke server log Discord"""
+    """Mengirim data ke Discord agar langsung dibaca dan dimasukkan ke Google Sheets oleh Zapier"""
     waktu_sekarang = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    # Format teks dipertahankan persis sama agar Zapier Anda tidak bingung membaca kolomnya
     payload = {
         "content": f"📊 **LAPORAN TRANSAKSI BARU LUNAS**\n"
                    f"📅 Waktu: `{waktu_sekarang}`\n"
@@ -76,8 +47,8 @@ def kirim_ke_database(metode_bayar, total_harga):
                    f"========================="
     }
     try:
-        requests.post(URL_WEBHOOK, json=payload, timeout=10)
-        return True
+        response = requests.post(URL_WEBHOOK, json=payload, timeout=10)
+        return response.status_code == 204
     except:
         return False
 
@@ -149,22 +120,20 @@ if total_akhir > 0:
         st.success(f"### 💵 Kembalian: Rp {kembalian:,}")
         
         if st.button("💾 Konfirmasi Transaksi Lunas", key="btn_tunai"):
-            sukses_sheet, pesan_sheet = kirim_ke_sheets("Tunai", total_akhir)
-            kirim_ke_database("Tunai", total_akhir)
-            
+            # Kirim data lewat Webhook Discord -> otomatis memicu Zapier Anda
+            sukses = kirim_ke_database("Tunai", total_akhir)
             st.session_state.riwayat_lokal.append({"Metode": "Tunai", "Total Belanja": total_akhir})
             
-            if sukses_sheet:
-                st.toast("🚀 Transaksi lunas otomatis masuk Google Sheets & Discord!")
+            if sukses:
+                st.toast("🚀 Transaksi Sukses! Data dikirim ke Zapier.")
             else:
-                st.error(f"Google Sheets Gagal: {pesan_sheet}")
-            
+                st.error("Gagal mengirim data ke Discord!")
+                
             st.session_state.keranjang = []
             st.rerun()
             
     with tab2:
-        st.info("Silakan scan kode QRIS dinamis di bawah ini menggunakan aplikasi e-wallet / m-banking pembeli:")
-        
+        st.info("Silakan scan kode QRIS dinamis di bawah ini:")
         generate_qris_dinamis(
             part1="00020101021226570011ID.DANA.WWW011893600915387331088002098733108800303UMI51440014ID.CO.QRIS.WWW0215ID10253904693320303UMI52045499530336054", 
             part2="5802ID5917Toko Belanja Vall6015Kota Jakarta Ti6105134106304", 
@@ -173,16 +142,15 @@ if total_akhir > 0:
         
         if st.button("✅ Konfirmasi Pembayaran QRIS Sukses", key="btn_qris"):
             st.balloons()
-            sukses_sheet, pesan_sheet = kirim_ke_sheets("QRIS", total_akhir)
-            kirim_ke_database("QRIS", total_akhir)
-            
+            # Kirim data lewat Webhook Discord -> otomatis memicu Zapier Anda
+            sukses = kirim_ke_database("QRIS", total_akhir)
             st.session_state.riwayat_lokal.append({"Metode": "QRIS", "Total Belanja": total_akhir})
             
-            if sukses_sheet:
-                st.success("🚀 Pembayaran QRIS sukses & tercatat di database!")
+            if sukses:
+                st.success("🚀 Pembayaran QRIS Sukses! Data diproses ke Zapier.")
             else:
-                st.error(f"Google Sheets Gagal: {pesan_sheet}")
-            
+                st.error("Gagal mengirim data QRIS ke Discord!")
+                
             st.session_state.keranjang = []
             st.rerun()
 
