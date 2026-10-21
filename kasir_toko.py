@@ -15,7 +15,7 @@ if "keranjang" not in st.session_state:
 if "riwayat_lokal" not in st.session_state:
     st.session_state.riwayat_lokal = []
 
-# 🔗 LINK WEBHOOK DISCORD ANDA
+# 🔗 LINK WEBHOOK DISCORD ANDA (KOREKSI DOMAIN RESMI API AGAR ANTI-SUMBAT)
 URL_WEBHOOK = "https://discord.com/api/webhooks/1562098718881353869/vaNjUU8iCqmWpu7l9fEH6TsBI4JnbSzd8mgqq1k9w-khtlTHX-E_OGXiZ7bQArL46Mx5"
 
 
@@ -71,6 +71,7 @@ def generate_qris_dinamis(part1, part2, nominal):
 
 # --- MENU DAN INPUT UTAMA KASIR ---
 
+# Menu Masakan Khas Papua Nova Exone
 MENU_BARANG = {
     "Papeda Kuah Kuning": 18000,
     "Es Kelapa Asam Manis": 10000,
@@ -116,7 +117,7 @@ if total_akhir > 0:
         st.success(f"### 💵 Kembalian: Rp {kembalian_tunai:,}")
         
         if st.button("💾 Konfirmasi Transaksi Lunas", key="btn_tunai"):
-            # Mengirimkan data lengkap Tunai ke Discord
+            # Mengirimkan data lengkap Tunai (Total, Uang Masuk, Kembalian) ke Discord untuk Zapier
             sukses = kirim_ke_database("Tunai", total_akhir, nominal_bayar, kembalian_tunai)
             st.session_state.riwayat_lokal.append({"Metode": "Tunai", "Total Belanja": total_akhir})
             
@@ -143,7 +144,7 @@ if total_akhir > 0:
         
         if st.button("✅ Konfirmasi Pembayaran QRIS Sukses", key="btn_qris"):
             st.balloons()
-            # Mengirimkan data lengkap QRIS ke Discord (Uang masuk pas, kembalian 0)
+            # Mengirimkan data lengkap QRIS (Uang masuk pas, kembalian 0) ke Discord untuk Zapier
             sukses = kirim_ke_database("QRIS", total_akhir, uang_masuk_qris, kembalian_qris)
             st.session_state.riwayat_lokal.append({"Metode": "QRIS", "Total Belanja": total_akhir})
             
