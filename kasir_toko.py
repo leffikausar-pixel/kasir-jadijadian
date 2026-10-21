@@ -3,7 +3,7 @@ import pandas as pd
 import requests
 import streamlit as st
 import qrcode
-from datetime import datetime, timedelta  # Menambahkan timedelta untuk kalkulasi manual jika diperlukan
+from datetime import datetime
 
 # Mengatur tampilan halaman web agar lebih luas dan modern
 st.set_page_config(page_title="Kasir Toko Berkah", layout="wide")
@@ -35,17 +35,13 @@ def crc16_checksum(data: str) -> str:
     return f"{crc:04X}"
 
 def kirim_ke_database(metode_bayar, total_harga):
-    """Mengirim baris teks bersih dengan Waktu Indonesia Barat (WIB) yang dikunci total"""
-    # Trik Paksa: Ambil jam server saat ini
-    waktu_server = datetime.now()
-    
-    # Deteksi apakah jam server tertinggal 7 jam (ciri khas server Streamlit luar negeri)
-    # Kita paksa tambahkan 7 jam secara manual agar menjadi Waktu Indonesia Barat (WIB) yang absolut
-    waktu_wib = (waktu_server + timedelta(hours=7)).strftime("%Y-%m-%d %H:%M:%S")
+    """Mengirim baris teks bersih dengan waktu lokal asli sistem kasir Anda"""
+    # Mengambil jam asli dari sistem komputer Anda tanpa ditambah-tambah lagi
+    waktu_lokal = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
     # Format baris teks CSV: Waktu,Metode,Total
     payload = {
-        "content": f"{waktu_wib},{metode_bayar},{total_harga}"
+        "content": f"{waktu_lokal},{metode_bayar},{total_harga}"
     }
     try:
         response = requests.post(URL_WEBHOOK, json=payload, timeout=10)
