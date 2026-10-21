@@ -3,11 +3,11 @@ import pandas as pd
 import requests
 import streamlit as st
 import qrcode
-from datetime import datetime, timedelta  # Menggunakan timedelta untuk bypass jam server luar negeri
+from datetime import datetime, timedelta
 
 # Mengatur tampilan halaman web agar lebih luas dan modern
 st.set_page_config(page_title="Kasir Toko Berkah", layout="wide")
-st.title("🏪 Kasir Toko Berkah")
+st.title("🏪 Kasir PAPUANOVA EXONE")
 
 # --- INISIALISASI SESSION STATE ---
 if "keranjang" not in st.session_state:
@@ -34,19 +34,16 @@ def crc16_checksum(data: str) -> str:
             crc &= 0xFFFF
     return f"{crc:04X}"
 
-def kirim_ke_database(metode_bayar, total_harga):
-    """Mengirim baris teks bersih dengan pemaksaan manual +7 Jam agar sinkron ke WIB"""
+def kirim_ke_database(metode_bayar, total_harga, uang_diterima=0, kembalian_tunai=0):
+    """Mengirim baris teks bersih lengkap dengan nominal belanja, uang diterima, dan kembalian ke Discord"""
     try:
-        # 1. Ambil jam dasar server Streamlit Cloud (yang terbaca 15:xx)
-        jam_dasar_server = datetime.now()
-        
-        # 2. Paksa tambahkan 7 jam secara manual agar melompat tepat ke Waktu Indonesia Barat (22:xx)
-        kalkulasi_wib = jam_dasar_server + timedelta(hours=7)
+        waktu_server = datetime.now()
+        kalkulasi_wib = waktu_server + timedelta(hours=7)
         waktu_wib_fix = kalkulasi_wib.strftime("%Y-%m-%d %H:%M:%S")
         
-        # Format baris teks CSV: Waktu,Metode,Total
+        # Format baris teks CSV: Waktu,Metode,Total,Uang Diterima,Kembalian
         payload = {
-            "content": f"{waktu_wib_fix},{metode_bayar},{total_harga}"
+            "content": f"{waktu_wib_fix},{metode_bayar},{total_harga},{uang_diterima},{kembalian_tunai}"
         }
         response = requests.post(URL_WEBHOOK, json=payload, timeout=10)
         return response.status_code == 204
@@ -75,11 +72,9 @@ def generate_qris_dinamis(part1, part2, nominal):
 # --- MENU DAN INPUT UTAMA KASIR ---
 
 MENU_BARANG = {
-    "Beras 1kg": 15000,
-    "Minyak Goreng 1L": 18000,
-    "Gula Pasir 1kg": 16000,
-    "Telur 1kg": 28000,
-    "Mie Instan": 35000
+    "Papeda Kuah Kuning": 18000,
+    "Es Kelapa Asam Manis": 10000,
+    "Kue Lontar": 8000,
 }
 
 col_menu, col_keranjang = st.columns(2)
@@ -117,11 +112,12 @@ if total_akhir > 0:
     
     with tab1:
         nominal_bayar = st.number_input("Jumlah Uang Tunai Diterima (Rp)", min_value=int(total_akhir), step=5000)
-        kembalian = nominal_bayar - total_akhir
-        st.success(f"### 💵 Kembalian: Rp {kembalian:,}")
+        kembalian_tunai = nominal_bayar - total_akhir
+        st.success(f"### 💵 Kembalian: Rp {kembalian_tunai:,}")
         
         if st.button("💾 Konfirmasi Transaksi Lunas", key="btn_tunai"):
-            sukses = kirim_ke_database("Tunai", total_akhir)
+            # Mengirimkan data lengkap Tunai ke Discord
+            sukses = kirim_ke_database("Tunai", total_akhir, nominal_bayar, kembalian_tunai)
             st.session_state.riwayat_lokal.append({"Metode": "Tunai", "Total Belanja": total_akhir})
             
             if sukses:
@@ -140,9 +136,15 @@ if total_akhir > 0:
             nominal=total_akhir
         )
         
+        # Untuk QRIS uang diterima otomatis pas dengan total belanja, dan kembalian diset 0
+        uang_masuk_qris = total_akhir
+        kembalian_qris = 0
+        st.success(f"### 📱 Jumlah Bayar QRIS: Rp {uang_masuk_qris:,} (Kembalian: Rp 0)")
+        
         if st.button("✅ Konfirmasi Pembayaran QRIS Sukses", key="btn_qris"):
             st.balloons()
-            sukses = kirim_ke_database("QRIS", total_akhir)
+            # Mengirimkan data lengkap QRIS ke Discord (Uang masuk pas, kembalian 0)
+            sukses = kirim_ke_database("QRIS", total_akhir, uang_masuk_qris, kembalian_qris)
             st.session_state.riwayat_lokal.append({"Metode": "QRIS", "Total Belanja": total_akhir})
             
             if sukses:
