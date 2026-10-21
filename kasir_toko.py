@@ -16,7 +16,7 @@ if "riwayat_lokal" not in st.session_state:
     st.session_state.riwayat_lokal = []
 
 # 🔗 LINK WEBHOOK DISCORD ANDA
-URL_WEBHOOK = "https://discordapp.com"
+URL_WEBHOOK = "https://discord.com/api/webhooks/1562098718881353869/vaNjUU8iCqmWpu7l9fEH6TsBI4JnbSzd8mgqq1k9w-khtlTHX-E_OGXiZ7bQArL46Mx5"
 
 
 # --- FUNGSI AUXILIARY & PENGIRIMAN DATA ---
