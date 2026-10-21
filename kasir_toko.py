@@ -4,10 +4,11 @@ import requests
 import streamlit as st
 import qrcode
 from datetime import datetime
+from zoneinfo import ZoneInfo  # Mengunci zona waktu lokal Indonesia secara permanen
 
 # Mengatur tampilan halaman web agar lebih luas dan modern
 st.set_page_config(page_title="Kasir Toko Berkah", layout="wide")
-st.title("🏪 Kasir PAPUANOVA EXONE")
+st.title("🏪 Kasir Toko Berkah")
 
 # --- INISIALISASI SESSION STATE ---
 if "keranjang" not in st.session_state:
@@ -16,7 +17,7 @@ if "riwayat_lokal" not in st.session_state:
     st.session_state.riwayat_lokal = []
 
 # 🔗 LINK WEBHOOK DISCORD ANDA (Kunci Utama Pengiriman ke Zapier)
-URL_WEBHOOK = "https://discord.com/api/webhooks/1562098718881353869/vaNjUU8iCqmWpu7l9fEH6TsBI4JnbSzd8mgqq1k9w-khtlTHX-E_OGXiZ7bQArL46Mx5"
+URL_WEBHOOK = "https://discordapp.com"
 
 
 # --- FUNGSI AUXILIARY & PENGIRIMAN DATA ---
@@ -35,19 +36,19 @@ def crc16_checksum(data: str) -> str:
     return f"{crc:04X}"
 
 def kirim_ke_database(metode_bayar, total_harga):
-    """Mengirim baris teks bersih dengan pemisah koma agar Zapier langsung memisahkannya dengan mudah"""
-    waktu_sekarang = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    """Mengirim baris teks bersih dengan Waktu Indonesia Barat (WIB) ke Discord"""
+    # Memaksa sistem mengambil waktu server lalu dikonversi langsung ke Waktu Asia/Jakarta (WIB)
+    waktu_wib = datetime.now(ZoneInfo("Asia/Jakarta")).strftime("%Y-%m-%d %H:%M:%S")
     
-    # Format baris teks: Waktu , Metode , Total
+    # Format baris teks CSV: Waktu,Metode,Total
     payload = {
-        "content": f"{waktu_sekarang},{metode_bayar},{total_harga}"
+        "content": f"{waktu_wib},{metode_bayar},{total_harga}"
     }
     try:
         response = requests.post(URL_WEBHOOK, json=payload, timeout=10)
         return response.status_code == 204
     except:
         return False
-
 
 def generate_qris_dinamis(part1, part2, nominal):
     """Menyusun teks QRIS Dinamis dan membuat gambar Barcode secara mandiri via library lokal"""
@@ -71,9 +72,11 @@ def generate_qris_dinamis(part1, part2, nominal):
 # --- MENU DAN INPUT UTAMA KASIR ---
 
 MENU_BARANG = {
-    "Papeda dan Ikan Patin Kuah Kuning": 18000,
-    "Kue Lontar": 8000,
-    "Es Kelapa Asam Manis": 10000,
+    "Beras 1kg": 15000,
+    "Minyak Goreng 1L": 18000,
+    "Gula Pasir 1kg": 16000,
+    "Telur 1kg": 28000,
+    "Mie Instan": 35000
 }
 
 col_menu, col_keranjang = st.columns(2)
