@@ -3,8 +3,7 @@ import pandas as pd
 import requests
 import streamlit as st
 import qrcode
-from datetime import datetime
-from zoneinfo import ZoneInfo  # Mengunci zona waktu lokal Indonesia secara permanen
+from datetime import datetime, timedelta  # Menambahkan timedelta untuk kalkulasi manual jika diperlukan
 
 # Mengatur tampilan halaman web agar lebih luas dan modern
 st.set_page_config(page_title="Kasir Toko Berkah", layout="wide")
@@ -16,7 +15,7 @@ if "keranjang" not in st.session_state:
 if "riwayat_lokal" not in st.session_state:
     st.session_state.riwayat_lokal = []
 
-# 🔗 LINK WEBHOOK DISCORD ANDA (Kunci Utama Pengiriman ke Zapier)
+# 🔗 LINK WEBHOOK DISCORD ANDA
 URL_WEBHOOK = "https://discordapp.com"
 
 
@@ -36,9 +35,13 @@ def crc16_checksum(data: str) -> str:
     return f"{crc:04X}"
 
 def kirim_ke_database(metode_bayar, total_harga):
-    """Mengirim baris teks bersih dengan Waktu Indonesia Barat (WIB) ke Discord"""
-    # Memaksa sistem mengambil waktu server lalu dikonversi langsung ke Waktu Asia/Jakarta (WIB)
-    waktu_wib = datetime.now(ZoneInfo("Asia/Jakarta")).strftime("%Y-%m-%d %H:%M:%S")
+    """Mengirim baris teks bersih dengan Waktu Indonesia Barat (WIB) yang dikunci total"""
+    # Trik Paksa: Ambil jam server saat ini
+    waktu_server = datetime.now()
+    
+    # Deteksi apakah jam server tertinggal 7 jam (ciri khas server Streamlit luar negeri)
+    # Kita paksa tambahkan 7 jam secara manual agar menjadi Waktu Indonesia Barat (WIB) yang absolut
+    waktu_wib = (waktu_server + timedelta(hours=7)).strftime("%Y-%m-%d %H:%M:%S")
     
     # Format baris teks CSV: Waktu,Metode,Total
     payload = {
@@ -118,7 +121,6 @@ if total_akhir > 0:
         st.success(f"### 💵 Kembalian: Rp {kembalian:,}")
         
         if st.button("💾 Konfirmasi Transaksi Lunas", key="btn_tunai"):
-            # Kirim data lewat Webhook Discord -> otomatis memicu Zapier Anda
             sukses = kirim_ke_database("Tunai", total_akhir)
             st.session_state.riwayat_lokal.append({"Metode": "Tunai", "Total Belanja": total_akhir})
             
@@ -140,7 +142,6 @@ if total_akhir > 0:
         
         if st.button("✅ Konfirmasi Pembayaran QRIS Sukses", key="btn_qris"):
             st.balloons()
-            # Kirim data lewat Webhook Discord -> otomatis memicu Zapier Anda
             sukses = kirim_ke_database("QRIS", total_akhir)
             st.session_state.riwayat_lokal.append({"Metode": "QRIS", "Total Belanja": total_akhir})
             
