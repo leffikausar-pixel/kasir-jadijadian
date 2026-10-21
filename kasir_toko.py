@@ -3,7 +3,7 @@ import pandas as pd
 import requests
 import streamlit as st
 import qrcode
-from datetime import datetime
+from datetime import datetime, timedelta  # Menggunakan timedelta untuk bypass jam server luar negeri
 
 # Mengatur tampilan halaman web agar lebih luas dan modern
 st.set_page_config(page_title="Kasir Toko Berkah", layout="wide")
@@ -34,13 +34,20 @@ def crc16_checksum(data: str) -> str:
             crc &= 0xFFFF
     return f"{crc:04X}"
 
-def kirim_ke_database(metode_bayar, total_harga, waktu_transaksi):
-    """Mengirim baris teks bersih dengan waktu pembeli yang asli ke Discord"""
-    # Format baris teks CSV: Waktu,Metode,Total
-    payload = {
-        "content": f"{waktu_transaksi},{metode_bayar},{total_harga}"
-    }
+def kirim_ke_database(metode_bayar, total_harga):
+    """Mengirim baris teks bersih dengan pemaksaan manual +7 Jam agar sinkron ke WIB"""
     try:
+        # 1. Ambil jam dasar server Streamlit Cloud (yang terbaca 15:xx)
+        jam_dasar_server = datetime.now()
+        
+        # 2. Paksa tambahkan 7 jam secara manual agar melompat tepat ke Waktu Indonesia Barat (22:xx)
+        kalkulasi_wib = jam_dasar_server + timedelta(hours=7)
+        waktu_wib_fix = kalkulasi_wib.strftime("%Y-%m-%d %H:%M:%S")
+        
+        # Format baris teks CSV: Waktu,Metode,Total
+        payload = {
+            "content": f"{waktu_wib_fix},{metode_bayar},{total_harga}"
+        }
         response = requests.post(URL_WEBHOOK, json=payload, timeout=10)
         return response.status_code == 204
     except:
@@ -108,28 +115,13 @@ if total_akhir > 0:
     
     tab1, tab2 = st.tabs(["💵 Pembayaran Tunai", "📱 Pembayaran QRIS"])
     
-    # Membaca jam lokal asli dari browser perangkat Anda (Kunci keakuratan 100%)
-    waktu_realtime_html = st.html(
-        """
-        <script>
-        const sekarang = new Date();
-        const offset = sekarang.getTimezoneOffset() * 60000;
-        const waktuLokal = new Date(sekarang.getTime() - offset).toISOString().slice(0, 19).replace('T', ' ');
-        window.parent.document.title = waktuLokal;
-        </script>
-        """
-    )
-    # Ambil string teks tanggal dan jam yang terbaca dari sistem laptop/HP kasir
-    waktu_final_pc = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    
     with tab1:
         nominal_bayar = st.number_input("Jumlah Uang Tunai Diterima (Rp)", min_value=int(total_akhir), step=5000)
         kembalian = nominal_bayar - total_akhir
         st.success(f"### 💵 Kembalian: Rp {kembalian:,}")
         
         if st.button("💾 Konfirmasi Transaksi Lunas", key="btn_tunai"):
-            # Kirim waktu asli pc yang sudah diverifikasi bersih
-            sukses = kirim_ke_database("Tunai", total_akhir, waktu_final_pc)
+            sukses = kirim_ke_database("Tunai", total_akhir)
             st.session_state.riwayat_lokal.append({"Metode": "Tunai", "Total Belanja": total_akhir})
             
             if sukses:
@@ -150,8 +142,7 @@ if total_akhir > 0:
         
         if st.button("✅ Konfirmasi Pembayaran QRIS Sukses", key="btn_qris"):
             st.balloons()
-            # Kirim waktu asli pc yang sudah diverifikasi bersih
-            sukses = kirim_ke_database("QRIS", total_akhir, waktu_final_pc)
+            sukses = kirim_ke_database("QRIS", total_akhir)
             st.session_state.riwayat_lokal.append({"Metode": "QRIS", "Total Belanja": total_akhir})
             
             if sukses:
